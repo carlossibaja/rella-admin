@@ -21,8 +21,8 @@ export function MonthSelect({
       </SelectTrigger>
       <SelectContent>
         {months.map((month) => (
-          <SelectItem key={month} value={month} className="capitalize">
-            <span className="capitalize">{formatMonth(month, "long")}</span>
+          <SelectItem key={month} value={month}>
+            <span>{formatMonth(month, "long")}</span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -92,7 +92,7 @@ function rowKey(row: AiProfitRow, groupBy: AiProfitGroupBy, index: number) {
 
 function RowLabel({ row, groupBy }: { row: AiProfitRow; groupBy: AiProfitGroupBy }) {
   if (groupBy === "day") {
-    return <span className="capitalize">{row.date ? formatDay(row.date, { weekday: "short", day: "numeric", month: "short" }) : "—"}</span>
+    return <span>{row.date ? formatDay(row.date, { weekday: "short", day: "numeric", month: "short" }) : "—"}</span>
   }
   if (groupBy === "organization") {
     const name = row.organization_name || `Empresa #${row.organization_id ?? "?"}`

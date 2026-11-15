@@ -72,7 +72,7 @@ export default function DashboardPage() {
         title="Dashboard"
         description={
           <>
-            Resumen de <span className="capitalize">{formatMonth(month, "long")}</span>
+            Resumen de {formatMonth(month, "long").toLowerCase()}
           </>
         }
         actions={<MonthSelect value={month} onChange={setMonth} />}

@@ -207,7 +207,7 @@ export default function RevenuePage() {
                     ))
                   : [...(data?.series ?? [])].reverse().map((point) => (
                       <TableRow key={point.period}>
-                        <TableCell className="pl-4 capitalize">
+                        <TableCell className="pl-4">
                           {formatPeriod(point.period, data?.group_by ?? groupBy)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatCOP(point.subscriptions)}</TableCell>

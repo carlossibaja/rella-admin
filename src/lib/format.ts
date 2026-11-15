@@ -57,16 +57,22 @@ function dayDate(day: string) {
   return new Date(`${day}T12:00:00Z`)
 }
 
+/** Uppercases only the first letter ("noviembre de 2026" → "Noviembre de 2026"); CSS `capitalize` would do every word. */
+export function sentenceCase(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 export function formatDay(day: string, options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) {
-  return new Intl.DateTimeFormat("es-CO", { timeZone: "UTC", ...options }).format(dayDate(day))
+  return sentenceCase(new Intl.DateTimeFormat("es-CO", { timeZone: "UTC", ...options }).format(dayDate(day)))
 }
 
 export function formatMonth(month: string, style: "short" | "long" = "short") {
-  return new Intl.DateTimeFormat("es-CO", {
+  const label = new Intl.DateTimeFormat("es-CO", {
     timeZone: "UTC",
     month: style,
     year: "numeric",
   }).format(dayDate(`${month}-01`))
+  return sentenceCase(label)
 }
 
 /** Label for a metrics period depending on its grouping. */

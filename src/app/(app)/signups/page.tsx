@@ -210,7 +210,7 @@ export default function SignupsPage() {
                     ))
                   : [...series].reverse().map((point) => (
                       <TableRow key={point.period}>
-                        <TableCell className="pl-4 capitalize">
+                        <TableCell className="pl-4">
                           {formatPeriod(point.period, data?.group_by ?? groupBy)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(point.count)}</TableCell>
