@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bot, Building2, LayoutDashboard, ShieldCheck, TrendingUp, UserPlus } from "lucide-react"
+import { ArrowLeftRight, Bot, Building2, LayoutDashboard, ShieldCheck, TrendingUp, UserPlus } from "lucide-react"
 
 import { BrandMark } from "@/components/brand"
 import {
@@ -26,6 +26,7 @@ const NAV = [
   { href: "/signups", label: "Altas", icon: UserPlus },
   { href: "/revenue", label: "Ingresos", icon: TrendingUp },
   { href: "/ai-profit", label: "Ganancia IA", icon: Bot },
+  { href: "/transactions", label: "Transacciones", icon: ArrowLeftRight },
 ] as const
 
 function isActive(pathname: string, href: string) {

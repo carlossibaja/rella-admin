@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import {
   ArrowLeft,
+  ArrowLeftRight,
   CalendarClock,
   History,
   Mail,
@@ -147,18 +148,25 @@ export default function OrganizationDetailPage() {
                   <span>ID #{data.id}</span>
                 </div>
               </div>
-              {data.deleted_at ? null : (
-                <div className="flex flex-wrap gap-2">
-                  <GiftCreditsDialog
-                    organization={data}
-                    onGifted={(detail) => void mutate(detail, { revalidate: false })}
-                  />
-                  <ExtendDialog
-                    organization={data}
-                    onExtended={(detail) => void mutate(detail, { revalidate: false })}
-                  />
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" asChild>
+                  <Link href={`/transactions?organization_id=${data.id}`}>
+                    <ArrowLeftRight /> Ver transacciones
+                  </Link>
+                </Button>
+                {data.deleted_at ? null : (
+                  <>
+                    <GiftCreditsDialog
+                      organization={data}
+                      onGifted={(detail) => void mutate(detail, { revalidate: false })}
+                    />
+                    <ExtendDialog
+                      organization={data}
+                      onExtended={(detail) => void mutate(detail, { revalidate: false })}
+                    />
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
 
