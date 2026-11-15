@@ -18,8 +18,14 @@ export type Overview = {
     ai_cost: number
     /** `ai_revenue − ai_cost`; negative when AI loses money. */
     ai_profit: number
-    /** `subscriptions + ai_profit`. */
+    /** `subscriptions + ai_profit` (gross of Wompi fees). */
     total: number
+    /** Wompi commission + VAT on approved payments (real cost). */
+    wompi_fees?: number
+    /** Retención en la fuente (1.5% of gross); a tax credit, not a cost. */
+    withholding?: number
+    /** `total − wompi_fees`. */
+    net_total?: number
     previous_month_total: number
     previous_same_days_total: number
     /** null when the previous month total is 0. */
@@ -41,6 +47,9 @@ export type Overview = {
     ai_profit: number
     ai_promo_cost?: number
     total: number
+    wompi_fees?: number
+    /** `total − wompi_fees`; can be negative. */
+    net_total?: number
   }[]
 }
 
@@ -82,6 +91,12 @@ export type RevenuePoint = {
   /** `ai_revenue − ai_cost`; can be negative. */
   ai_profit: number
   total: number
+  /** Wompi commission + VAT on approved payments (real cost). */
+  wompi_fees?: number
+  /** Retención en la fuente (1.5% of gross); a tax credit, not a cost. */
+  withholding?: number
+  /** `total − wompi_fees`; can be negative. */
+  net_total?: number
 }
 
 export type Revenue = {

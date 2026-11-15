@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts"
-import { ArrowRight, Bot, CreditCard, Repeat, TrendingUp, Wallet } from "lucide-react"
+import { ArrowRight, Bot, CreditCard, Receipt, Repeat, TrendingUp, Wallet } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
@@ -48,6 +48,7 @@ const chartConfig = {
   subscriptions: { label: "Suscripciones", color: "var(--chart-1)" },
   ai_profit: { label: "Ganancia IA", color: "var(--chart-2)" },
   total: { label: "Total", color: "var(--foreground)" },
+  net_total: { label: "Neto", color: "var(--chart-3)" },
 } satisfies ChartConfig
 
 const moneyTooltip = tooltipFormatter(chartConfig)
@@ -96,13 +97,28 @@ export default function RevenuePage() {
         <ErrorState message={errorMessage(error)} onRetry={() => void mutate()} />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard
               label="Total del periodo"
               icon={Wallet}
               loading={loading}
               value={formatCOP(totals?.total)}
               hint="Suscripciones + ganancia IA"
+            />
+            <KpiCard
+              label="Neto del periodo"
+              icon={TrendingUp}
+              loading={loading}
+              value={formatCOP(totals?.net_total)}
+              negative={(totals?.net_total ?? 0) < 0}
+              hint="Total − costo Wompi"
+            />
+            <KpiCard
+              label="Costo Wompi"
+              icon={Receipt}
+              loading={loading}
+              value={formatCOP(totals?.wompi_fees)}
+              hint={`Comisión + IVA · Retención (crédito fiscal): ${formatCOP(totals?.withholding)}`}
             />
             <KpiCard label="Suscripciones" icon={CreditCard} loading={loading} value={formatCOP(totals?.subscriptions)} />
             <KpiCard
@@ -136,7 +152,8 @@ export default function RevenuePage() {
             <CardHeader>
               <CardTitle>Ingresos por periodo</CardTitle>
               <CardDescription>
-                Barras apiladas por fuente (la ganancia IA baja de cero cuando es pérdida); la línea marca el total
+                Barras apiladas por fuente (la ganancia IA baja de cero cuando es pérdida); la línea punteada marca el total
+                y la continua el neto (total − costo Wompi)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -197,6 +214,13 @@ export default function RevenuePage() {
                       strokeDasharray="4 4"
                       dot={{ r: 3, fill: "var(--color-total)" }}
                     />
+                    <Line
+                      dataKey="net_total"
+                      type="monotone"
+                      stroke="var(--color-net_total)"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "var(--color-net_total)" }}
+                    />
                   </ComposedChart>
                 </ChartContainer>
               )}
@@ -214,14 +238,17 @@ export default function RevenuePage() {
                   <TableHead className="text-right">Regalo consumido</TableHead>
                   <TableHead className="text-right">Costo del regalo</TableHead>
                   <TableHead className="text-right">Ganancia IA</TableHead>
-                  <TableHead className="pr-4 text-right">Total</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Costo Wompi</TableHead>
+                  <TableHead className="text-right">Retención</TableHead>
+                  <TableHead className="pr-4 text-right">Neto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading
                   ? Array.from({ length: 6 }, (_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={8} className="px-4">
+                        <TableCell colSpan={11} className="px-4">
                           <Skeleton className="h-5 w-full" />
                         </TableCell>
                       </TableRow>
@@ -243,8 +270,17 @@ export default function RevenuePage() {
                         <TableCell className={cn("text-right tabular-nums", point.ai_profit < 0 && LOSS)}>
                           {formatCOP(point.ai_profit)}
                         </TableCell>
-                        <TableCell className="pr-4 text-right font-medium tabular-nums">
-                          {formatCOP(point.total)}
+                        <TableCell className="text-right font-medium tabular-nums">{formatCOP(point.total)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {formatCOP(point.wompi_fees)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {formatCOP(point.withholding)}
+                        </TableCell>
+                        <TableCell
+                          className={cn("pr-4 text-right font-medium tabular-nums", (point.net_total ?? 0) < 0 && LOSS)}
+                        >
+                          {formatCOP(point.net_total)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -263,7 +299,14 @@ export default function RevenuePage() {
                     <TableCell className={cn("text-right font-semibold tabular-nums", totals.ai_profit < 0 && LOSS)}>
                       {formatCOP(totals.ai_profit)}
                     </TableCell>
-                    <TableCell className="pr-4 text-right font-semibold tabular-nums">{formatCOP(totals.total)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.total)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.wompi_fees)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.withholding)}</TableCell>
+                    <TableCell
+                      className={cn("pr-4 text-right font-semibold tabular-nums", (totals.net_total ?? 0) < 0 && LOSS)}
+                    >
+                      {formatCOP(totals.net_total)}
+                    </TableCell>
                   </TableRow>
                 </TableFooter>
               ) : null}

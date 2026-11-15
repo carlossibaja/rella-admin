@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { BadgeCheck, CreditCard, Hash, Search, X } from "lucide-react"
+import { BadgeCheck, Banknote, CreditCard, Hash, Landmark, Receipt, Search, TrendingUp, X } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
@@ -89,6 +89,11 @@ const EMPTY_FILTERS: Filters = {
   sort: DEFAULT_SORT,
 }
 
+/** COP amount, or a muted "—" when absent (fees are null unless APPROVED). */
+function money(value: number | null | undefined) {
+  return value === null || value === undefined ? MUTED_DASH : formatCOP(value)
+}
+
 function initialFilters(): Filters {
   const query = readQuery()
   return {
@@ -146,7 +151,7 @@ export function SubscriptionPayments() {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           label="Pagos"
           icon={Hash}
@@ -154,10 +159,38 @@ export function SubscriptionPayments() {
           value={formatNumber(totals?.count)}
         />
         <KpiCard
-          label="Total aprobado"
+          label="Bruto aprobado"
           icon={BadgeCheck}
           loading={loadingTotals}
           value={formatCOP(totals?.approved_total)}
+        />
+        <KpiCard
+          label="Costo Wompi"
+          icon={Receipt}
+          loading={loadingTotals}
+          value={formatCOP(totals?.wompi_fee_total)}
+          hint="Comisión 2,65 % + $700 + IVA 19 %"
+        />
+        <KpiCard
+          label="Neto"
+          icon={TrendingUp}
+          loading={loadingTotals}
+          value={formatCOP(totals?.net_total)}
+          hint="Bruto − costo Wompi"
+        />
+        <KpiCard
+          label="Retención (crédito fiscal)"
+          icon={Landmark}
+          loading={loadingTotals}
+          value={formatCOP(totals?.withholding_total)}
+          hint="1,5 % del bruto; no es un costo"
+        />
+        <KpiCard
+          label="Depositado"
+          icon={Banknote}
+          loading={loadingTotals}
+          value={formatCOP(totals?.deposited_total)}
+          hint="Neto − retención (llega al banco)"
         />
       </div>
 
@@ -254,14 +287,16 @@ export function SubscriptionPayments() {
                   <TableHead>Estado</TableHead>
                   <TableHead>Usuario</TableHead>
                   <TableHead className="text-right">Periodos</TableHead>
-                  <TableHead className="pr-4 text-right">Valor</TableHead>
+                  <TableHead className="text-right">Bruto</TableHead>
+                  <TableHead className="text-right">Costo Wompi</TableHead>
+                  <TableHead className="pr-4 text-right">Neto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && !data
                   ? Array.from({ length: 8 }, (_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 8 }, (_, j) => (
+                        {Array.from({ length: 10 }, (_, j) => (
                           <TableCell key={j} className={j === 0 ? "pl-4" : undefined}>
                             <Skeleton className="h-5 w-full max-w-32" />
                           </TableCell>
@@ -293,10 +328,19 @@ export function SubscriptionPayments() {
                               ? MUTED_DASH
                               : formatNumber(payment.periods)}
                           </TableCell>
+                          <TableCell className="text-right tabular-nums whitespace-nowrap">
+                            {money(payment.price)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums whitespace-nowrap">
+                            {money(payment.wompi_fee)}
+                          </TableCell>
                           <TableCell className="pr-4 text-right tabular-nums whitespace-nowrap">
-                            {payment.price === null || payment.price === undefined
-                              ? MUTED_DASH
-                              : formatCOP(payment.price)}
+                            {money(payment.net)}
+                            {payment.net === null || payment.net === undefined ? null : (
+                              <p className="text-xs text-muted-foreground">
+                                Ret. {formatCOP(payment.withholding)} · Dep. {formatCOP(payment.deposited)}
+                              </p>
+                            )}
                           </TableCell>
                         </TableRow>
                       )

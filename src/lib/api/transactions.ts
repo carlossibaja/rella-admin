@@ -25,11 +25,30 @@ export type SubscriptionPayment = {
   periods?: number | null
   plan?: NamedRef | null
   user?: NamedRef | null
+  /*
+   * Wompi fees (COP, up to 2 decimals); null unless APPROVED.
+   * Costo Wompi = commission (2.65% + 700) + 19% VAT; withholding (retención,
+   * 1.5% of gross) is a tax credit, not a cost.
+   */
+  wompi_commission?: number | null
+  wompi_vat?: number | null
+  /** `wompi_commission + wompi_vat`. */
+  wompi_fee?: number | null
+  withholding?: number | null
+  /** `price − wompi_fee` (real income). */
+  net?: number | null
+  /** `net − withholding` (what reaches the bank). */
+  deposited?: number | null
 }
 
+/** Money totals cover APPROVED payments only. */
 export type SubscriptionPaymentTotals = {
   count: number
   approved_total: number
+  wompi_fee_total?: number
+  withholding_total?: number
+  net_total?: number
+  deposited_total?: number
 }
 
 export type SubscriptionPaymentsPage = Paginated<SubscriptionPayment> & {

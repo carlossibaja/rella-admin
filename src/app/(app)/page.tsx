@@ -10,8 +10,10 @@ import {
   CalendarClock,
   CreditCard,
   Gift,
+  Receipt,
   Repeat,
   Sparkles,
+  TrendingUp,
   Wallet,
 } from "lucide-react"
 import useSWR from "swr"
@@ -83,7 +85,7 @@ export default function DashboardPage() {
         <ErrorState message={errorMessage(error)} onRetry={() => void mutate()} />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
               label="Ingresos del mes"
               icon={Wallet}
@@ -91,6 +93,21 @@ export default function DashboardPage() {
               value={formatCOP(data?.revenue.total)}
               change={data?.revenue.change_pct ?? null}
               hint={`vs ${formatCOP(data?.revenue.previous_same_days_total)} en los mismos días del mes anterior`}
+            />
+            <KpiCard
+              label="Neto del mes"
+              icon={TrendingUp}
+              loading={loading}
+              value={formatCOP(data?.revenue.net_total)}
+              negative={(data?.revenue.net_total ?? 0) < 0}
+              hint={`Ingresos − costo Wompi · Retención: ${formatCOP(data?.revenue.withholding)}`}
+            />
+            <KpiCard
+              label="Costo Wompi"
+              icon={Receipt}
+              loading={loading}
+              value={formatCOP(data?.revenue.wompi_fees)}
+              hint="Comisión + IVA de los pagos aprobados"
             />
             <KpiCard
               label="Suscripciones"
