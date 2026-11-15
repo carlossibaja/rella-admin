@@ -113,3 +113,8 @@ export function initials(name: string) {
     .map((part) => part[0]?.toUpperCase())
     .join("")
 }
+
+/** ISO timestamp as a Bogota `Y-m-d`. */
+export function localDay(iso: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date(iso))
+}
