@@ -1,4 +1,4 @@
-import { withQuery } from "./client"
+import { fetchData, withQuery } from "./client"
 import type { OrganizationStatus } from "./organizations"
 
 export type GroupBy = "day" | "week" | "month"
@@ -84,4 +84,54 @@ export function signupsKey(filters: SignupFilters) {
 
 export function revenueKey(filters: RevenueFilters) {
   return withQuery("/staff/metrics/revenue", filters)
+}
+
+export type AiProfitGroupBy = "day" | "organization" | "model" | "concept"
+
+export type AiProfitFilters = {
+  from?: string
+  to?: string
+  group_by?: AiProfitGroupBy
+}
+
+/** Money of the AI profit report, in cents (convert with `centsToPesos`). */
+export type AiProfitMoney = {
+  charged_in_cents: number
+  provider_cost_in_cents: number
+  profit_in_cents: number
+  /** null when nothing was charged. */
+  margin_percent: number | null
+  calls: number
+}
+
+/** One row; which key is present depends on `group_by`. */
+export type AiProfitRow = AiProfitMoney & {
+  date?: string
+  organization_id?: number
+  organization_name?: string | null
+  model?: string | null
+  concept?: string | null
+  label?: string | null
+}
+
+export type AiProfit = {
+  from: string
+  to: string
+  timezone: string
+  group_by: AiProfitGroupBy
+  totals: AiProfitMoney & {
+    estimated_calls: number
+    missing_cost_calls: number
+    free_credits_granted_in_cents: number
+  }
+  rows: AiProfitRow[]
+  note?: string
+}
+
+export function aiProfitKey(filters: AiProfitFilters) {
+  return withQuery("/staff/metrics/ai-profit", filters)
+}
+
+export function getAiProfit(filters: AiProfitFilters) {
+  return fetchData<AiProfit>(aiProfitKey(filters))
 }

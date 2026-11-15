@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts"
-import { Bot, CreditCard, Repeat, TrendingUp, Wallet } from "lucide-react"
+import { ArrowRight, Bot, CreditCard, Repeat, TrendingUp, Wallet } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
@@ -10,6 +11,7 @@ import { KpiCard } from "@/components/kpi-card"
 import { tooltipFormatter } from "@/components/money-tooltip"
 import { PageHeader } from "@/components/page-header"
 import { DateField, GroupBySelect } from "@/components/range-filters"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -66,6 +68,14 @@ export default function RevenuePage() {
       <PageHeader
         title="Ingresos"
         description="Suscripciones pagadas y ganancia de IA (cobrado − costo del proveedor)."
+        actions={
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/ai-profit">
+              Ver detalle de IA
+              <ArrowRight />
+            </Link>
+          </Button>
+        }
       />
 
       <Card className="py-4">

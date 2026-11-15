@@ -118,3 +118,12 @@ export function initials(name: string) {
 export function localDay(iso: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date(iso))
 }
+
+/** Amounts reported in cents (`*_in_cents`) as pesos. */
+export function centsToPesos(cents: number | null | undefined) {
+  return (cents ?? 0) / 100
+}
+
+export function formatCents(cents: number | null | undefined) {
+  return formatCOP(centsToPesos(cents))
+}
