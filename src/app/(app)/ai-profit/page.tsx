@@ -12,7 +12,9 @@ import {
   Gift,
   Percent,
   PhoneCall,
+  HandCoins,
   Receipt,
+  Sparkles,
   Wallet,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -46,7 +48,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { errorMessage } from "@/lib/api/client"
-import { aiProfitKey, type AiProfit, type AiProfitGroupBy, type AiProfitRow } from "@/lib/api/metrics"
+import {
+  aiProfitKey,
+  type AiProfit,
+  type AiProfitGroupBy,
+  type AiProfitMoney,
+  type AiProfitRow,
+} from "@/lib/api/metrics"
 import {
   addDays,
   centsToPesos,
@@ -74,10 +82,17 @@ const COLUMN_LABELS: Record<AiProfitGroupBy, string> = {
 }
 
 const chartConfig = {
-  charged: { label: "Cobrado", color: "var(--chart-1)" },
+  charged: { label: "Cobrado pagado", color: "var(--chart-1)" },
   cost: { label: "Costo proveedor", color: "var(--chart-3)" },
-  profit: { label: "Ganancia", color: "var(--foreground)" },
+  profit: { label: "Ganancia real", color: "var(--foreground)" },
 } satisfies ChartConfig
+
+const LOSS = "text-red-700 dark:text-red-400"
+
+/** Paid part of the charge; an API without the split reports everything as paid. */
+function paidCharged(money: AiProfitMoney) {
+  return money.paid_charged_in_cents ?? money.charged_in_cents
+}
 
 const moneyTooltip = tooltipFormatter(chartConfig)
 
@@ -163,7 +178,7 @@ export default function AiProfitPage() {
     () =>
       (data?.group_by === "day" ? data.rows : []).map((row) => ({
         date: row.date ?? "",
-        charged: centsToPesos(row.charged_in_cents),
+        charged: centsToPesos(paidCharged(row)),
         cost: centsToPesos(row.provider_cost_in_cents),
         profit: centsToPesos(row.profit_in_cents),
       })),
@@ -177,7 +192,7 @@ export default function AiProfitPage() {
     <>
       <PageHeader
         title="Ganancia IA"
-        description="Lo cobrado por consumos de IA frente al costo del proveedor, en todas las empresas."
+        description="Lo pagado con créditos recargados frente a todo el costo del proveedor (Claude), incluido el del regalo, en todas las empresas."
       />
 
       <Card className="py-4">
@@ -212,8 +227,21 @@ export default function AiProfitPage() {
         <ErrorState message={errorMessage(error)} onRetry={() => void mutate()} />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <KpiCard label="Cobrado" icon={Receipt} loading={loading} value={formatCents(totals?.charged_in_cents)} />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Cobrado pagado"
+              icon={Receipt}
+              loading={loading}
+              value={formatCents(totals ? paidCharged(totals) : 0)}
+              hint="Consumo pagado con créditos recargados"
+            />
+            <KpiCard
+              label="Regalo consumido"
+              icon={Gift}
+              loading={loading}
+              value={formatCents(totals?.promo_charged_in_cents)}
+              hint="Pagado con créditos regalados; no es ingreso"
+            />
             <KpiCard
               label="Costo proveedor"
               icon={Coins}
@@ -224,22 +252,30 @@ export default function AiProfitPage() {
                   ? `${formatNumber(totals.missing_cost_calls)} sin costo registrado`
                   : totals?.estimated_calls
                     ? `${formatNumber(totals.estimated_calls)} estimados`
-                    : undefined
+                    : "Todo el consumo, pagado y regalado"
               }
             />
             <KpiCard
-              label="Ganancia"
+              label="Costo del regalo"
+              icon={HandCoins}
+              loading={loading}
+              value={formatCents(totals?.promo_cost_in_cents)}
+              hint="Lo que te costó el consumo regalado"
+            />
+            <KpiCard
+              label="Ganancia real"
               icon={Wallet}
               loading={loading}
               value={formatCents(totals?.profit_in_cents)}
-              hint="Cobrado − costo proveedor"
+              negative={(totals?.profit_in_cents ?? 0) < 0}
+              hint="Cobrado pagado − costo proveedor"
             />
             <KpiCard
               label="Margen"
               icon={Percent}
               loading={loading}
               value={formatPct(totals?.margin_percent)}
-              hint={totals ? <MarginBadge value={totals.margin_percent} /> : undefined}
+              hint={totals ? <MarginBadge value={totals.margin_percent} /> : "Sobre lo cobrado pagado"}
             />
             <KpiCard
               label="Llamadas"
@@ -250,7 +286,7 @@ export default function AiProfitPage() {
             />
             <KpiCard
               label="Créditos gratis otorgados"
-              icon={Gift}
+              icon={Sparkles}
               loading={loading}
               value={formatCents(totals?.free_credits_granted_in_cents)}
               hint="No es ingreso en efectivo"
@@ -260,8 +296,10 @@ export default function AiProfitPage() {
           {groupBy === "day" ? (
             <Card>
               <CardHeader>
-                <CardTitle>Cobrado vs costo por día</CardTitle>
-                <CardDescription>Barras: cobrado y costo del proveedor; la línea marca la ganancia</CardDescription>
+                <CardTitle>Cobrado pagado vs costo por día</CardTitle>
+                <CardDescription>
+                  Barras: cobrado pagado y todo el costo del proveedor; la línea marca la ganancia real
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading || stale ? (
@@ -318,8 +356,10 @@ export default function AiProfitPage() {
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead className="pl-4">{COLUMN_LABELS[shownGroup]}</TableHead>
                   <TableHead className="text-right">Llamadas</TableHead>
-                  <TableHead className="text-right">Cobrado</TableHead>
+                  <TableHead className="text-right">Cobrado pagado</TableHead>
+                  <TableHead className="text-right">Regalo consumido</TableHead>
                   <TableHead className="text-right">Costo proveedor</TableHead>
+                  <TableHead className="text-right">Costo del regalo</TableHead>
                   <TableHead className="text-right">
                     <button
                       type="button"
@@ -327,7 +367,7 @@ export default function AiProfitPage() {
                       className="inline-flex items-center gap-1 hover:text-foreground"
                       aria-label="Ordenar por ganancia"
                     >
-                      Ganancia
+                      Ganancia real
                       <SortIcon className="size-3.5" />
                     </button>
                   </TableHead>
@@ -338,14 +378,14 @@ export default function AiProfitPage() {
                 {loading || stale ? (
                   Array.from({ length: 6 }, (_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={6} className="px-4">
+                      <TableCell colSpan={8} className="px-4">
                         <Skeleton className="h-5 w-full" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : rows.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={8}>
                       <EmptyState icon={Bot} title="Sin consumos de IA" description="No hubo consumos aprobados en este rango." />
                     </TableCell>
                   </TableRow>
@@ -356,16 +396,15 @@ export default function AiProfitPage() {
                         <RowLabel row={row} groupBy={shownGroup} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatNumber(row.calls)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCents(row.charged_in_cents)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCents(paidCharged(row))}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCents(row.promo_charged_in_cents)}</TableCell>
                       <TableCell className="text-right text-muted-foreground tabular-nums">
                         {formatCents(row.provider_cost_in_cents)}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-medium tabular-nums",
-                          row.profit_in_cents < 0 && "text-red-700 dark:text-red-400"
-                        )}
-                      >
+                      <TableCell className="text-right text-muted-foreground tabular-nums">
+                        {formatCents(row.promo_cost_in_cents)}
+                      </TableCell>
+                      <TableCell className={cn("text-right font-medium tabular-nums", row.profit_in_cents < 0 && LOSS)}>
                         {formatCents(row.profit_in_cents)}
                       </TableCell>
                       <TableCell className="pr-4 text-right">
@@ -380,11 +419,21 @@ export default function AiProfitPage() {
                   <TableRow>
                     <TableCell className="pl-4 font-semibold">Total</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{formatNumber(totals.calls)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{formatCents(totals.charged_in_cents)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{formatCents(paidCharged(totals))}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatCents(totals.promo_charged_in_cents)}
+                    </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {formatCents(totals.provider_cost_in_cents)}
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{formatCents(totals.profit_in_cents)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatCents(totals.promo_cost_in_cents)}
+                    </TableCell>
+                    <TableCell
+                      className={cn("text-right font-semibold tabular-nums", totals.profit_in_cents < 0 && LOSS)}
+                    >
+                      {formatCents(totals.profit_in_cents)}
+                    </TableCell>
                     <TableCell className="pr-4 text-right">
                       <MarginBadge value={totals.margin_percent} />
                     </TableCell>

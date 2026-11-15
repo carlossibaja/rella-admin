@@ -12,6 +12,7 @@ export function KpiCard({
   hint,
   change,
   loading,
+  negative,
 }: {
   label: string
   value: React.ReactNode
@@ -20,6 +21,8 @@ export function KpiCard({
   /** Percentage change; renders a trend pill when provided. */
   change?: number | null
   loading?: boolean
+  /** Shows the value in red with a down arrow (e.g. a loss). */
+  negative?: boolean
 }) {
   return (
     <Card className="gap-0 py-5">
@@ -33,7 +36,15 @@ export function KpiCard({
         {loading ? (
           <Skeleton className="h-8 w-32" />
         ) : (
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">{value}</span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-2xl font-semibold tracking-tight tabular-nums",
+              negative && "text-red-700 dark:text-red-400"
+            )}
+          >
+            {negative ? <ArrowDownRight className="size-5 shrink-0" aria-label="Pérdida" /> : null}
+            {value}
+          </span>
         )}
         <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground">
           {change !== undefined && !loading ? <TrendPill value={change} /> : null}

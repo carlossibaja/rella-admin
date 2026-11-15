@@ -42,6 +42,7 @@ import {
   formatPeriod,
   todayLocal,
 } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 const chartConfig = {
   subscriptions: { label: "Suscripciones", color: "var(--chart-1)" },
@@ -50,6 +51,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 const moneyTooltip = tooltipFormatter(chartConfig)
+
+const LOSS = "text-red-700 dark:text-red-400"
 
 export default function RevenuePage() {
   const [from, setFrom] = useState(() => `${addMonths(currentMonth(), -11)}-01`)
@@ -61,13 +64,16 @@ export default function RevenuePage() {
   )
   const loading = isLoading && !data
   const totals = data?.totals
-  const hasData = (data?.series ?? []).some((point) => point.total !== 0 || point.ai_revenue !== 0)
+  const hasData = (data?.series ?? []).some(
+    (point) =>
+      point.total !== 0 || point.ai_revenue !== 0 || point.ai_cost !== 0 || (point.ai_promo_consumed ?? 0) !== 0
+  )
 
   return (
     <>
       <PageHeader
         title="Ingresos"
-        description="Suscripciones pagadas y ganancia de IA (cobrado − costo del proveedor)."
+        description="Suscripciones pagadas y ganancia real de IA: lo pagado con créditos recargados menos todo el costo del proveedor (Claude), incluido el del regalo."
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/ai-profit">
@@ -104,7 +110,18 @@ export default function RevenuePage() {
               icon={Bot}
               loading={loading}
               value={formatCOP(totals?.ai_profit)}
-              hint={`${formatNumber(totals?.ai_calls)} llamadas de IA`}
+              negative={(totals?.ai_profit ?? 0) < 0}
+              hint={
+                <span className="flex flex-col gap-0.5">
+                  <span>
+                    {formatCOP(totals?.ai_revenue)} pagado · {formatCOP(totals?.ai_cost)} costo
+                  </span>
+                  <span>
+                    Regalo consumido: {formatCOP(totals?.ai_promo_consumed)} (te costó{" "}
+                    {formatCOP(totals?.ai_promo_cost)}) · {formatNumber(totals?.ai_calls)} llamadas
+                  </span>
+                </span>
+              }
             />
             <KpiCard
               label="MRR actual"
@@ -118,7 +135,9 @@ export default function RevenuePage() {
           <Card>
             <CardHeader>
               <CardTitle>Ingresos por periodo</CardTitle>
-              <CardDescription>Barras apiladas por fuente; la línea marca el total</CardDescription>
+              <CardDescription>
+                Barras apiladas por fuente (la ganancia IA baja de cero cuando es pérdida); la línea marca el total
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -127,7 +146,7 @@ export default function RevenuePage() {
                 <EmptyState className="h-80" icon={TrendingUp} title="Sin ingresos en este periodo" />
               ) : (
                 <ChartContainer config={chartConfig} className="aspect-auto h-80 w-full">
-                  <ComposedChart data={data.series} margin={{ left: 4, right: 4, top: 8 }}>
+                  <ComposedChart data={data.series} stackOffset="sign" margin={{ left: 4, right: 4, top: 8 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis
                       dataKey="period"
@@ -190,8 +209,10 @@ export default function RevenuePage() {
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead className="pl-4">Periodo</TableHead>
                   <TableHead className="text-right">Suscripciones</TableHead>
-                  <TableHead className="text-right">IA cobrado</TableHead>
-                  <TableHead className="text-right">IA costo</TableHead>
+                  <TableHead className="text-right">IA pagada</TableHead>
+                  <TableHead className="text-right">Costo IA</TableHead>
+                  <TableHead className="text-right">Regalo consumido</TableHead>
+                  <TableHead className="text-right">Costo del regalo</TableHead>
                   <TableHead className="text-right">Ganancia IA</TableHead>
                   <TableHead className="pr-4 text-right">Total</TableHead>
                 </TableRow>
@@ -200,7 +221,7 @@ export default function RevenuePage() {
                 {loading
                   ? Array.from({ length: 6 }, (_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={6} className="px-4">
+                        <TableCell colSpan={8} className="px-4">
                           <Skeleton className="h-5 w-full" />
                         </TableCell>
                       </TableRow>
@@ -215,7 +236,13 @@ export default function RevenuePage() {
                         <TableCell className="text-right text-muted-foreground tabular-nums">
                           {formatCOP(point.ai_cost)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCOP(point.ai_profit)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCOP(point.ai_promo_consumed)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {formatCOP(point.ai_promo_cost)}
+                        </TableCell>
+                        <TableCell className={cn("text-right tabular-nums", point.ai_profit < 0 && LOSS)}>
+                          {formatCOP(point.ai_profit)}
+                        </TableCell>
                         <TableCell className="pr-4 text-right font-medium tabular-nums">
                           {formatCOP(point.total)}
                         </TableCell>
@@ -229,7 +256,13 @@ export default function RevenuePage() {
                     <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.subscriptions)}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.ai_revenue)}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.ai_cost)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.ai_profit)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatCOP(totals.ai_promo_consumed)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{formatCOP(totals.ai_promo_cost)}</TableCell>
+                    <TableCell className={cn("text-right font-semibold tabular-nums", totals.ai_profit < 0 && LOSS)}>
+                      {formatCOP(totals.ai_profit)}
+                    </TableCell>
                     <TableCell className="pr-4 text-right font-semibold tabular-nums">{formatCOP(totals.total)}</TableCell>
                   </TableRow>
                 </TableFooter>

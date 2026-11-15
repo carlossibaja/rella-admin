@@ -9,6 +9,7 @@ import {
   Building2,
   CalendarClock,
   CreditCard,
+  Gift,
   Repeat,
   Sparkles,
   Wallet,
@@ -103,7 +104,19 @@ export default function DashboardPage() {
               icon={Bot}
               loading={loading}
               value={formatCOP(data?.revenue.ai_profit)}
-              hint={`${formatCOP(data?.revenue.ai_revenue)} cobrado · ${formatCOP(data?.revenue.ai_cost)} costo`}
+              negative={(data?.revenue.ai_profit ?? 0) < 0}
+              hint={
+                <span className="flex flex-col gap-0.5">
+                  <span>
+                    {formatCOP(data?.revenue.ai_revenue)} pagado · {formatCOP(data?.revenue.ai_cost)} costo
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Gift className="size-3 shrink-0" />
+                    Regalo consumido: {formatCOP(data?.revenue.ai_promo_consumed)} (te costó{" "}
+                    {formatCOP(data?.revenue.ai_promo_cost)})
+                  </span>
+                </span>
+              }
             />
             <KpiCard
               label="MRR"
@@ -162,7 +175,7 @@ function IncomeChart({ data, loading }: { data?: Overview; loading: boolean }) {
           <CardTitle>Ingresos diarios</CardTitle>
           <CardDescription>
             {mode === "daily"
-              ? "Suscripciones y ganancia de IA por día"
+              ? "Suscripciones y ganancia real de IA por día (negativa si la IA pierde)"
               : "Total acumulado en el mes"}
           </CardDescription>
         </div>
@@ -189,7 +202,7 @@ function IncomeChart({ data, loading }: { data?: Overview; loading: boolean }) {
           />
         ) : mode === "daily" ? (
           <ChartContainer config={incomeConfig} className="aspect-auto h-72 w-full">
-            <BarChart data={data?.daily} margin={{ left: 4, right: 4 }}>
+            <BarChart data={data?.daily} stackOffset="sign" margin={{ left: 4, right: 4 }}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="date"

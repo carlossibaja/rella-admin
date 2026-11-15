@@ -8,9 +8,17 @@ export type Overview = {
   currency: string
   revenue: {
     subscriptions: number
+    /** AI consumption paid with recharged (paid) credits. */
     ai_revenue: number
+    /** AI consumption paid with gifted (promotional) credits; not income. */
+    ai_promo_consumed?: number
+    /** Provider cost of the gifted consumption (already inside `ai_cost`). */
+    ai_promo_cost?: number
+    /** Every provider cost, paid and gifted. */
     ai_cost: number
+    /** `ai_revenue − ai_cost`; negative when AI loses money. */
     ai_profit: number
+    /** `subscriptions + ai_profit`. */
     total: number
     previous_month_total: number
     previous_same_days_total: number
@@ -27,7 +35,13 @@ export type Overview = {
     new_this_month: number
     new_previous_month: number
   }
-  daily: { date: string; subscriptions: number; ai_profit: number; total: number }[]
+  daily: {
+    date: string
+    subscriptions: number
+    ai_profit: number
+    ai_promo_cost?: number
+    total: number
+  }[]
 }
 
 export type SignupFilters = {
@@ -57,8 +71,15 @@ export type RevenueFilters = {
 export type RevenuePoint = {
   period: string
   subscriptions: number
+  /** AI consumption paid with recharged (paid) credits. */
   ai_revenue: number
+  /** AI consumption paid with gifted credits; not income. */
+  ai_promo_consumed?: number
+  /** Provider cost of the gifted consumption (already inside `ai_cost`). */
+  ai_promo_cost?: number
+  /** Every provider cost, paid and gifted. */
   ai_cost: number
+  /** `ai_revenue − ai_cost`; can be negative. */
   ai_profit: number
   total: number
 }
@@ -96,10 +117,19 @@ export type AiProfitFilters = {
 
 /** Money of the AI profit report, in cents (convert with `centsToPesos`). */
 export type AiProfitMoney = {
+  /** Every consumption, paid plus gifted. */
   charged_in_cents: number
+  /** Consumption paid with recharged credits (real income). */
+  paid_charged_in_cents?: number
+  /** Consumption paid with gifted credits (not income). */
+  promo_charged_in_cents?: number
+  /** Provider cost of every consumption. */
   provider_cost_in_cents: number
+  /** Provider cost of the gifted consumption (part of `provider_cost_in_cents`). */
+  promo_cost_in_cents?: number
+  /** `paid_charged − provider_cost`; can be negative. */
   profit_in_cents: number
-  /** null when nothing was charged. */
+  /** Profit over paid charged; null when nothing was paid. */
   margin_percent: number | null
   calls: number
 }
