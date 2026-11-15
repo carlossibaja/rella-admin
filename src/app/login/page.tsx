@@ -20,10 +20,7 @@ export default function LoginPage() {
       <div className="relative flex w-full max-w-sm flex-col gap-6">
         <div className="flex items-center gap-3 self-center">
           <BrandMark className="size-10" />
-          <div className="leading-tight">
-            <p className="text-lg font-semibold">Rella Admin</p>
-            <p className="text-sm text-muted-foreground">Panel interno de RellaChat</p>
-          </div>
+          <p className="text-lg font-semibold">Rella Admin</p>
         </div>
         <LoginForm />
       </div>

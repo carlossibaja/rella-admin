@@ -1,4 +1,4 @@
-import { MessageCircle } from "lucide-react"
+import Image from "next/image"
 
 import { cn } from "@/lib/utils"
 
@@ -6,11 +6,11 @@ export function BrandMark({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm",
+        "relative size-8 shrink-0 overflow-hidden rounded-lg shadow-sm",
         className
       )}
     >
-      <MessageCircle className="size-4" />
+      <Image src="/rella-logo.png" alt="Rella" fill sizes="40px" className="object-cover" priority />
     </div>
   )
 }
