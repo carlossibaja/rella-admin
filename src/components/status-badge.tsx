@@ -1,26 +1,37 @@
 import { Badge } from "@/components/ui/badge"
-import type { OrganizationStatus } from "@/lib/api/organizations"
+import type { OrganizationStatusFilter } from "@/lib/api/organizations"
 import { cn } from "@/lib/utils"
 
-export const STATUS_LABELS: Record<OrganizationStatus, string> = {
+export const STATUS_LABELS: Record<OrganizationStatusFilter, string> = {
   active: "Activa",
   expiring: "Por vencer",
   expired: "Vencida",
   none: "Sin plan",
+  deleted: "Eliminada",
 }
 
-const STATUS_STYLES: Record<OrganizationStatus, string> = {
+const STATUS_STYLES: Record<OrganizationStatusFilter, string> = {
   active: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
   expiring: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   expired: "bg-red-500/12 text-red-700 dark:text-red-400",
   none: "bg-muted text-muted-foreground",
+  deleted: "bg-red-600 text-white dark:bg-red-500/80",
 }
 
-const DOT_STYLES: Record<OrganizationStatus, string> = {
+const DOT_STYLES: Record<OrganizationStatusFilter, string> = {
   active: "bg-emerald-500",
   expiring: "bg-amber-500",
   expired: "bg-red-500",
   none: "bg-zinc-400",
+  deleted: "bg-white",
+}
+
+/** Effective status of an organization: a soft-deleted one is "deleted" whatever its plan. */
+export function organizationStatus(org: {
+  status: OrganizationStatusFilter
+  deleted_at?: string | null
+}): OrganizationStatusFilter {
+  return org.deleted_at ? "deleted" : org.status
 }
 
 export function StatusBadge({
@@ -28,7 +39,7 @@ export function StatusBadge({
   daysLeft,
   className,
 }: {
-  status: OrganizationStatus
+  status: OrganizationStatusFilter
   daysLeft?: number | null
   className?: string
 }) {

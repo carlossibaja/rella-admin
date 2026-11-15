@@ -9,7 +9,7 @@ import useSWR from "swr"
 import { EmptyState, ErrorState } from "@/components/empty-state"
 import { PageHeader } from "@/components/page-header"
 import { SimplePagination } from "@/components/simple-pagination"
-import { STATUS_LABELS, StatusBadge } from "@/components/status-badge"
+import { STATUS_LABELS, StatusBadge, organizationStatus } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -30,13 +30,13 @@ import {
   organizationsKey,
   type OrganizationRow,
   type OrganizationSort,
-  type OrganizationStatus,
+  type OrganizationStatusFilter,
   type Paginated,
 } from "@/lib/api/organizations"
-import { formatCOP, formatDate, formatNumber } from "@/lib/format"
+import { formatCOP, formatDate, formatDateTime, formatNumber } from "@/lib/format"
 
 const ALL = "all"
-const STATUSES = Object.keys(STATUS_LABELS) as OrganizationStatus[]
+const STATUSES = Object.keys(STATUS_LABELS) as OrganizationStatusFilter[]
 
 const SORTS: { value: OrganizationSort; label: string }[] = [
   { value: "-created_at", label: "Más recientes" },
@@ -50,7 +50,7 @@ const SORTS: { value: OrganizationSort; label: string }[] = [
 type Filters = {
   search: string
   plan: string
-  status: OrganizationStatus | ""
+  status: OrganizationStatusFilter | ""
   created_from: string
   created_to: string
   sort: OrganizationSort
@@ -69,8 +69,8 @@ const EMPTY_FILTERS: Filters = {
 function initialFilters(): Filters {
   if (typeof window === "undefined") return EMPTY_FILTERS
   const status = new URLSearchParams(window.location.search).get("status")
-  return STATUSES.includes(status as OrganizationStatus)
-    ? { ...EMPTY_FILTERS, status: status as OrganizationStatus, sort: "expires_at" }
+  return STATUSES.includes(status as OrganizationStatusFilter)
+    ? { ...EMPTY_FILTERS, status: status as OrganizationStatusFilter, sort: "expires_at" }
     : EMPTY_FILTERS
 }
 
@@ -127,7 +127,7 @@ export default function OrganizationsPage() {
           </div>
           <Select
             value={filters.status || ALL}
-            onValueChange={(value) => update("status", value === ALL ? "" : (value as OrganizationStatus))}
+            onValueChange={(value) => update("status", value === ALL ? "" : (value as OrganizationStatusFilter))}
           >
             <SelectTrigger className="w-full" aria-label="Estado">
               <SelectValue />
@@ -136,7 +136,7 @@ export default function OrganizationsPage() {
               <SelectItem value={ALL}>Todos los estados</SelectItem>
               {STATUSES.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
+                  {status === "deleted" ? "Eliminadas" : STATUS_LABELS[status]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -255,7 +255,12 @@ export default function OrganizationsPage() {
                         </TableCell>
                         <TableCell>{org.plan?.name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                         <TableCell>
-                          <StatusBadge status={org.status} daysLeft={org.days_left} />
+                          <StatusBadge status={organizationStatus(org)} daysLeft={org.days_left} />
+                          {org.deleted_at ? (
+                            <p className="mt-1 text-xs whitespace-nowrap text-red-700 dark:text-red-400">
+                              Se borra el {formatDateTime(org.purge_at)}
+                            </p>
+                          ) : null}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {org.plan && !org.expires_at ? "De por vida" : formatDate(org.expires_at)}

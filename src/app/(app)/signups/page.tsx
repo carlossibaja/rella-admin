@@ -85,7 +85,9 @@ export default function SignupsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos</SelectItem>
-                {(Object.keys(STATUS_LABELS) as OrganizationStatus[]).map((value) => (
+                {(Object.keys(STATUS_LABELS) as OrganizationStatus[])
+                  .filter((value) => (value as string) !== "deleted")
+                  .map((value) => (
                   <SelectItem key={value} value={value}>
                     {STATUS_LABELS[value]}
                   </SelectItem>

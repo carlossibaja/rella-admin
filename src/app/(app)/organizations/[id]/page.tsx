@@ -10,13 +10,14 @@ import {
   Phone,
   Radio,
   Receipt,
+  TriangleAlert,
   Users,
   Wallet,
 } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
-import { StatusBadge } from "@/components/status-badge"
+import { StatusBadge, organizationStatus } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +36,7 @@ import { organizationKey, type OrganizationDetail, type Plan } from "@/lib/api/o
 import { formatCOP, formatDate, formatDateTime, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
+import { DeleteDialog, RestoreDialog } from "./deletion-dialogs"
 import { ExtendDialog } from "./extend-dialog"
 
 const PAYMENT_TYPES: Record<string, string> = {
@@ -66,6 +68,8 @@ const RENEWAL_STATUS: Record<string, string> = {
 
 const AUDIT_ACTIONS: Record<string, string> = {
   "subscription.extend": "Extensión de vencimiento",
+  "organization.delete": "Eliminación de la empresa",
+  "organization.restore": "Restauración de la empresa",
 }
 
 function planPeriod(plan: Plan) {
@@ -106,12 +110,35 @@ export default function OrganizationDetailPage() {
         <DetailSkeleton />
       ) : (
         <>
+          {data.deleted_at ? (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-800 sm:flex-row sm:items-center sm:justify-between dark:text-red-300"
+            >
+              <div className="flex items-start gap-3">
+                <TriangleAlert className="mt-0.5 size-5 shrink-0" />
+                <div>
+                  <p className="font-semibold">
+                    Empresa eliminada — se borrará definitivamente el {formatDateTime(data.purge_at)}
+                  </p>
+                  <p className="text-sm opacity-90">
+                    Eliminada el {formatDateTime(data.deleted_at)}. Puedes restaurarla hasta esa fecha.
+                  </p>
+                </div>
+              </div>
+              <RestoreDialog
+                organization={data}
+                onRestored={(detail) => void mutate(detail, { revalidate: false })}
+              />
+            </div>
+          ) : null}
+
           <Card>
             <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-semibold tracking-tight">{data.name}</h1>
-                  <StatusBadge status={data.status} daysLeft={data.days_left} />
+                  <StatusBadge status={organizationStatus(data)} daysLeft={data.days_left} />
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
                   {data.owner ? (
@@ -128,10 +155,12 @@ export default function OrganizationDetailPage() {
                   <span>ID #{data.id}</span>
                 </div>
               </div>
-              <ExtendDialog
-                organization={data}
-                onExtended={(detail) => void mutate(detail, { revalidate: false })}
-              />
+              {data.deleted_at ? null : (
+                <ExtendDialog
+                  organization={data}
+                  onExtended={(detail) => void mutate(detail, { revalidate: false })}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -331,6 +360,23 @@ export default function OrganizationDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {data.deleted_at ? null : (
+            <Card className="border-destructive/40">
+              <CardHeader>
+                <CardTitle className="text-destructive">Zona de peligro</CardTitle>
+                <CardDescription>
+                  Eliminar la empresa la desactiva de inmediato y borra todos sus datos en 7 días.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DeleteDialog
+                  organization={data}
+                  onDeleted={(detail) => void mutate(detail, { revalidate: false })}
+                />
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </>

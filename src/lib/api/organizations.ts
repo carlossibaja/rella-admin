@@ -2,6 +2,9 @@ import { api, withQuery } from "./client"
 
 export type OrganizationStatus = "active" | "expiring" | "expired" | "none"
 
+/** List filter: the subscription statuses plus soft-deleted organizations. */
+export type OrganizationStatusFilter = OrganizationStatus | "deleted"
+
 export type Plan = {
   id: number
   name: string
@@ -32,6 +35,9 @@ export type OrganizationRow = {
   users_count: number
   channels_count: number
   rellacash_balance: number
+  /** Set when soft-deleted; the organization is purged at `purge_at`. */
+  deleted_at: string | null
+  purge_at: string | null
 }
 
 export type CurrentSubscription = {
@@ -111,7 +117,7 @@ export type OrganizationSort =
 export type OrganizationFilters = {
   search?: string
   plan?: string
-  status?: OrganizationStatus | ""
+  status?: OrganizationStatusFilter | ""
   created_from?: string
   created_to?: string
   sort?: OrganizationSort
@@ -140,4 +146,36 @@ export async function extendOrganization(
     payload
   )
   return data.data
+}
+
+export type DeletePayload = { confirm_name: string; reason: string }
+
+/** Soft-deletes the organization; it is purged permanently after the grace period. */
+export async function deleteOrganization(
+  id: number | string,
+  payload: DeletePayload
+): Promise<OrganizationDetail> {
+  const { data } = await api.delete<{ data: OrganizationDetail }>(`/staff/organizations/${id}`, {
+    data: payload,
+  })
+  return data.data
+}
+
+export async function restoreOrganization(
+  id: number | string,
+  payload: { reason: string }
+): Promise<OrganizationDetail> {
+  const { data } = await api.post<{ data: OrganizationDetail }>(
+    `/staff/organizations/${id}/restore`,
+    payload
+  )
+  return data.data
+}
+
+/** SWR key matcher for every organizations list page (any filters). */
+export function isOrganizationsListKey(key: unknown) {
+  return (
+    typeof key === "string" &&
+    (key === "/staff/organizations" || key.startsWith("/staff/organizations?"))
+  )
 }
