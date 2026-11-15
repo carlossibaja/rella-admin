@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowDownLeft, ArrowUpRight, Gift, Hash, Search, Server, Wallet, X } from "lucide-react"
+import { BadgeCheck, CreditCard, Hash, Search, X } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
@@ -24,15 +24,11 @@ import {
 import { useDebounced } from "@/hooks/use-debounced"
 import { errorMessage, fetchBody } from "@/lib/api/client"
 import {
-  RELLACASH_CONCEPTS,
-  fundingOf,
-  rellaCashTransactionsKey,
-  type RellaCashConcept,
-  type RellaCashFunding,
-  type RellaCashPage,
-  type RellaCashSort,
-  type RellaCashStatus,
-  type RellaCashType,
+  subscriptionPaymentsKey,
+  type SubscriptionPaymentSort,
+  type SubscriptionPaymentStatus,
+  type SubscriptionPaymentType,
+  type SubscriptionPaymentsPage,
 } from "@/lib/api/transactions"
 import { formatCOP, formatDateTime, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -44,75 +40,50 @@ import {
   OrganizationFilterChip,
   OrganizationLink,
   PER_PAGE,
-  SignedAmount,
   pick,
   readQuery,
   useQuerySync,
 } from "./shared"
 
-const TYPE_LABELS: Record<RellaCashType, string> = {
-  recharge: "Recarga",
-  consumption: "Consumo",
-  refund: "Reembolso",
-  adjustment: "Ajuste",
+const TYPE_LABELS: Record<SubscriptionPaymentType, string> = {
+  SUBSCRIPTION: "Suscripción",
+  RENEW: "Renovación",
+  ADDITION: "Adición",
+  RELLA_CASH_RECHARGE: "Compra de créditos",
 }
-const TYPES = Object.keys(TYPE_LABELS) as RellaCashType[]
+const TYPES = Object.keys(TYPE_LABELS) as SubscriptionPaymentType[]
 
-const STATUS_LABELS: Record<RellaCashStatus, string> = {
-  pending: "Pendiente",
-  approved: "Aprobada",
-  declined: "Rechazada",
-  error: "Error",
+const STATUS: Record<SubscriptionPaymentStatus, { label: string; className: string }> = {
+  APPROVED: { label: "Aprobado", className: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400" },
+  PENDING: { label: "Pendiente", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
+  DECLINED: { label: "Rechazado", className: "bg-red-500/12 text-red-700 dark:text-red-400" },
+  ERROR: { label: "Error", className: "bg-red-500/12 text-red-700 dark:text-red-400" },
 }
-const STATUSES = Object.keys(STATUS_LABELS) as RellaCashStatus[]
+const STATUSES = Object.keys(STATUS) as SubscriptionPaymentStatus[]
 
-const CONCEPT_LABELS: Record<RellaCashConcept, string> = {
-  ai_reply: "Respuesta IA",
-  ai_suggestion: "Sugerencia IA",
-  ai_summary: "Resumen IA",
-  ai_flow_builder: "Constructor de flujos IA",
-  ai_simulation: "Simulación IA",
-  ai_automation: "Automatización IA",
-  ai_rewrite: "Reescritura IA",
-  ai_copilot: "Copiloto IA",
-  ai_assistant: "Asistente IA",
-  ai_transcription: "Transcripción IA",
-}
-
-const FUNDING: Record<RellaCashFunding, { label: string; className: string }> = {
-  promo: { label: "Regalo", className: "bg-violet-500/12 text-violet-700 dark:text-violet-400" },
-  paid: { label: "Pagado", className: "bg-sky-500/12 text-sky-700 dark:text-sky-400" },
-  mixed: { label: "Mixto", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
-}
-const FUNDINGS = Object.keys(FUNDING) as RellaCashFunding[]
-
-const SORTS: { value: RellaCashSort; label: string }[] = [
+const SORTS: { value: SubscriptionPaymentSort; label: string }[] = [
   { value: "-created_at", label: "Más recientes" },
-  { value: "created_at", label: "Más antiguas" },
-  { value: "-amount", label: "Mayor monto" },
-  { value: "amount", label: "Menor monto" },
+  { value: "created_at", label: "Más antiguos" },
+  { value: "-price", label: "Mayor valor" },
+  { value: "price", label: "Menor valor" },
 ]
-const DEFAULT_SORT: RellaCashSort = "-created_at"
+const DEFAULT_SORT: SubscriptionPaymentSort = "-created_at"
 
 type Filters = {
   search: string
   organization_id: string
-  type: RellaCashType | ""
-  status: RellaCashStatus | ""
-  concept: RellaCashConcept | ""
-  funding: RellaCashFunding | ""
+  status: SubscriptionPaymentStatus | ""
+  type: SubscriptionPaymentType | ""
   from: string
   to: string
-  sort: RellaCashSort
+  sort: SubscriptionPaymentSort
 }
 
 const EMPTY_FILTERS: Filters = {
   search: "",
   organization_id: "",
-  type: "",
   status: "",
-  concept: "",
-  funding: "",
+  type: "",
   from: "",
   to: "",
   sort: DEFAULT_SORT,
@@ -123,10 +94,8 @@ function initialFilters(): Filters {
   return {
     search: query.get("search") ?? "",
     organization_id: query.get("organization_id") ?? "",
-    type: pick(query, "type", TYPES, ""),
     status: pick(query, "status", STATUSES, ""),
-    concept: pick(query, "concept", RELLACASH_CONCEPTS, ""),
-    funding: pick(query, "funding", FUNDINGS, ""),
+    type: pick(query, "type", TYPES, ""),
     from: query.get("from") ?? "",
     to: query.get("to") ?? "",
     sort: pick(query, "sort", SORTS.map((s) => s.value), DEFAULT_SORT),
@@ -137,7 +106,7 @@ function initialPage() {
   return Math.max(1, Number(readQuery().get("page")) || 1)
 }
 
-export function RellaCashTab() {
+export function SubscriptionPayments() {
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [page, setPage] = useState(initialPage)
   const search = useDebounced(filters.search.trim())
@@ -145,24 +114,21 @@ export function RellaCashTab() {
   const params = {
     search,
     organization_id: filters.organization_id,
-    type: filters.type,
     status: filters.status,
-    concept: filters.concept,
-    funding: filters.funding,
+    type: filters.type,
     from: filters.from,
     to: filters.to,
     sort: filters.sort,
   }
 
   useQuerySync({
-    tab: "rellacash",
     ...params,
     sort: params.sort === DEFAULT_SORT ? undefined : params.sort,
     page: page > 1 ? page : undefined,
   })
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR<RellaCashPage>(
-    rellaCashTransactionsKey({ ...params, page, per_page: PER_PAGE }),
+  const { data, error, isLoading, isValidating, mutate } = useSWR<SubscriptionPaymentsPage>(
+    subscriptionPaymentsKey({ ...params, page, per_page: PER_PAGE }),
     fetchBody
   )
 
@@ -180,31 +146,18 @@ export function RellaCashTab() {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2">
         <KpiCard
-          label="Transacciones"
+          label="Pagos"
           icon={Hash}
           loading={loadingTotals}
           value={formatNumber(totals?.count)}
         />
-        <KpiCard label="Acreditado" icon={ArrowDownLeft} loading={loadingTotals} value={formatCOP(totals?.credited)} />
         <KpiCard
-          label="Debitado"
-          icon={ArrowUpRight}
+          label="Total aprobado"
+          icon={BadgeCheck}
           loading={loadingTotals}
-          value={formatCOP(totals?.debited)}
-        />
-        <KpiCard
-          label="Regalo consumido"
-          icon={Gift}
-          loading={loadingTotals}
-          value={formatCOP(totals?.promo_consumed)}
-        />
-        <KpiCard
-          label="Costo proveedor"
-          icon={Server}
-          loading={loadingTotals}
-          value={formatCOP(totals?.provider_cost)}
+          value={formatCOP(totals?.approved_total)}
         />
       </div>
 
@@ -222,7 +175,7 @@ export function RellaCashTab() {
           </div>
           <Select
             value={filters.type || ALL}
-            onValueChange={(value) => update("type", value === ALL ? "" : (value as RellaCashType))}
+            onValueChange={(value) => update("type", value === ALL ? "" : (value as SubscriptionPaymentType))}
           >
             <SelectTrigger className="w-full" aria-label="Tipo">
               <SelectValue />
@@ -238,7 +191,7 @@ export function RellaCashTab() {
           </Select>
           <Select
             value={filters.status || ALL}
-            onValueChange={(value) => update("status", value === ALL ? "" : (value as RellaCashStatus))}
+            onValueChange={(value) => update("status", value === ALL ? "" : (value as SubscriptionPaymentStatus))}
           >
             <SelectTrigger className="w-full" aria-label="Estado">
               <SelectValue />
@@ -247,23 +200,19 @@ export function RellaCashTab() {
               <SelectItem value={ALL}>Todos los estados</SelectItem>
               {STATUSES.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
+                  {STATUS[status].label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={filters.funding || ALL}
-            onValueChange={(value) => update("funding", value === ALL ? "" : (value as RellaCashFunding))}
-          >
-            <SelectTrigger className="w-full" aria-label="Financiación">
+          <Select value={filters.sort} onValueChange={(value) => update("sort", value as SubscriptionPaymentSort)}>
+            <SelectTrigger className="w-full" aria-label="Orden">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Regalo y pagado</SelectItem>
-              {FUNDINGS.map((funding) => (
-                <SelectItem key={funding} value={funding}>
-                  {FUNDING[funding].label}
+              {SORTS.map((sort) => (
+                <SelectItem key={sort.value} value={sort.value}>
+                  {sort.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -278,34 +227,6 @@ export function RellaCashTab() {
           >
             <X /> Limpiar
           </Button>
-          <Select
-            value={filters.concept || ALL}
-            onValueChange={(value) => update("concept", value === ALL ? "" : (value as RellaCashConcept))}
-          >
-            <SelectTrigger className="w-full self-end" aria-label="Concepto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Todos</SelectItem>
-              {RELLACASH_CONCEPTS.map((concept) => (
-                <SelectItem key={concept} value={concept}>
-                  {CONCEPT_LABELS[concept]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.sort} onValueChange={(value) => update("sort", value as RellaCashSort)}>
-            <SelectTrigger className="w-full self-end" aria-label="Orden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORTS.map((sort) => (
-                <SelectItem key={sort.value} value={sort.value}>
-                  {sort.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <DateRangeInputs from={filters.from} to={filters.to} onChange={update} />
         </CardContent>
       </Card>
@@ -329,72 +250,53 @@ export function RellaCashTab() {
                   <TableHead className="pl-4">Fecha</TableHead>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Concepto</TableHead>
+                  <TableHead>Plan</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Usuario</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead className="text-right">Costo proveedor</TableHead>
-                  <TableHead className="pr-4 text-right">Saldo después</TableHead>
+                  <TableHead className="text-right">Periodos</TableHead>
+                  <TableHead className="pr-4 text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && !data
                   ? Array.from({ length: 8 }, (_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 9 }, (_, j) => (
+                        {Array.from({ length: 8 }, (_, j) => (
                           <TableCell key={j} className={j === 0 ? "pl-4" : undefined}>
                             <Skeleton className="h-5 w-full max-w-32" />
                           </TableCell>
                         ))}
                       </TableRow>
                     ))
-                  : rows.map((tx) => {
-                      const funding = tx.type === "consumption" ? fundingOf(tx) : null
+                  : rows.map((payment) => {
+                      const status = STATUS[payment.status as SubscriptionPaymentStatus]
                       return (
-                        <TableRow key={tx.id}>
-                          <TableCell className="pl-4 whitespace-nowrap">{formatDateTime(tx.created_at)}</TableCell>
-                          <TableCell>
-                            <OrganizationLink organization={tx.organization} />
+                        <TableRow key={payment.id}>
+                          <TableCell className="pl-4 whitespace-nowrap">
+                            {formatDateTime(payment.created_at)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span>{tx.type_label ?? TYPE_LABELS[tx.type as RellaCashType] ?? tx.type}</span>
-                              {funding ? (
-                                <Badge className={cn("border-transparent font-medium", FUNDING[funding].className)}>
-                                  {FUNDING[funding].label}
-                                </Badge>
-                              ) : null}
-                            </div>
+                            <OrganizationLink organization={payment.organization} />
                           </TableCell>
                           <TableCell>
-                            <p className="max-w-56 truncate">{tx.concept_label ?? "—"}</p>
-                            {tx.description || tx.model ? (
-                              <p className="max-w-56 truncate text-xs text-muted-foreground">
-                                {[tx.description, tx.model].filter(Boolean).join(" · ")}
-                              </p>
-                            ) : null}
+                            {payment.type_label ?? TYPE_LABELS[payment.type as SubscriptionPaymentType] ?? payment.type}
                           </TableCell>
+                          <TableCell>{payment.plan?.name ?? MUTED_DASH}</TableCell>
                           <TableCell>
-                            {tx.status ? (STATUS_LABELS[tx.status as RellaCashStatus] ?? tx.status) : MUTED_DASH}
+                            <Badge className={cn("border-transparent font-medium", status?.className)}>
+                              {payment.status_label ?? status?.label ?? payment.status}
+                            </Badge>
                           </TableCell>
-                          <TableCell>
-                            {tx.user ? <span className="max-w-40 truncate">{tx.user.name}</span> : MUTED_DASH}
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap">
-                            <SignedAmount value={tx.amount}>
-                              {tx.amount > 0 ? "+" : ""}
-                              {formatCOP(tx.amount)}
-                            </SignedAmount>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums whitespace-nowrap">
-                            {tx.provider_cost === null || tx.provider_cost === undefined
+                          <TableCell>{payment.user?.name ?? MUTED_DASH}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {payment.periods === null || payment.periods === undefined
                               ? MUTED_DASH
-                              : formatCOP(tx.provider_cost)}
+                              : formatNumber(payment.periods)}
                           </TableCell>
                           <TableCell className="pr-4 text-right tabular-nums whitespace-nowrap">
-                            {tx.balance_after === null || tx.balance_after === undefined
+                            {payment.price === null || payment.price === undefined
                               ? MUTED_DASH
-                              : formatCOP(tx.balance_after)}
+                              : formatCOP(payment.price)}
                           </TableCell>
                         </TableRow>
                       )
@@ -403,8 +305,8 @@ export function RellaCashTab() {
             </Table>
             {!isLoading && rows.length === 0 ? (
               <EmptyState
-                icon={Wallet}
-                title="No hay transacciones con estos filtros"
+                icon={CreditCard}
+                title="No hay pagos con estos filtros"
                 description="Prueba con otra búsqueda o limpia los filtros."
               />
             ) : null}

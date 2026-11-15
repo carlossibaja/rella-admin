@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { withQuery } from "@/lib/api/client"
-import { cn } from "@/lib/utils"
 
 export const ALL = "all"
 export const PER_PAGE = 25
@@ -106,17 +105,3 @@ export function DateRangeInputs({
   )
 }
 
-/** Signed amount: green for credits, red for debits. */
-export function SignedAmount({ value, children }: { value: number | null | undefined; children: React.ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "tabular-nums",
-        (value ?? 0) > 0 && "text-emerald-700 dark:text-emerald-400",
-        (value ?? 0) < 0 && "text-red-700 dark:text-red-400"
-      )}
-    >
-      {children}
-    </span>
-  )
-}
