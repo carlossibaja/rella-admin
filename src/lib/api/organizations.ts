@@ -148,7 +148,25 @@ export async function extendOrganization(
   return data.data
 }
 
-export type DeletePayload = { confirm_name: string; reason: string }
+/** Gifted (promotional) RellaCash credits; `amount` in COP pesos, 1.000–1.000.000. */
+export type GiftCreditsPayload = { amount: number; reason: string }
+
+export const GIFT_MIN_AMOUNT = 1000
+export const GIFT_MAX_AMOUNT = 1000000
+
+/** Gifts promotional RellaCash credits; they are not counted as revenue. */
+export async function giftCredits(
+  id: number | string,
+  payload: GiftCreditsPayload
+): Promise<OrganizationDetail> {
+  const { data } = await api.post<{ data: OrganizationDetail }>(
+    `/staff/organizations/${id}/gift-credits`,
+    payload
+  )
+  return data.data
+}
+
+export type DeletePayload ={ confirm_name: string; reason: string }
 
 /** Soft-deletes the organization; it is purged permanently after the grace period. */
 export async function deleteOrganization(

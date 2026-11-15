@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils"
 
 import { DeleteDialog, RestoreDialog } from "./deletion-dialogs"
 import { ExtendDialog } from "./extend-dialog"
+import { GiftCreditsDialog } from "./gift-credits-dialog"
 
 const PAYMENT_TYPES: Record<string, string> = {
   SUBSCRIPTION: "Suscripción",
@@ -71,6 +72,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
   "subscription.extend": "Extensión de vencimiento",
   "organization.delete": "Eliminación de la empresa",
   "organization.restore": "Restauración de la empresa",
+  "rellacash.gift": "Créditos regalados",
 }
 
 export default function OrganizationDetailPage() {
@@ -146,10 +148,16 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
               {data.deleted_at ? null : (
-                <ExtendDialog
-                  organization={data}
-                  onExtended={(detail) => void mutate(detail, { revalidate: false })}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <GiftCreditsDialog
+                    organization={data}
+                    onGifted={(detail) => void mutate(detail, { revalidate: false })}
+                  />
+                  <ExtendDialog
+                    organization={data}
+                    onExtended={(detail) => void mutate(detail, { revalidate: false })}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
@@ -380,6 +388,25 @@ function AuditChange({
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
 }) {
+  const gift = giftChange(before, after)
+  if (gift) {
+    return (
+      <p className="mt-1 text-xs text-muted-foreground">
+        {gift.amount !== null ? (
+          <>
+            Monto: <span className="font-medium text-foreground">{formatCOP(gift.amount)}</span>
+          </>
+        ) : null}
+        {gift.amount !== null && gift.to !== null ? " · " : null}
+        {gift.to !== null ? (
+          <>
+            Saldo: {gift.from !== null ? formatCOP(gift.from) : "—"} →{" "}
+            <span className="font-medium text-foreground">{formatCOP(gift.to)}</span>
+          </>
+        ) : null}
+      </p>
+    )
+  }
   const from = typeof before?.expires_at === "string" ? before.expires_at : null
   const to = typeof after?.expires_at === "string" ? after.expires_at : null
   if (!to) return null
@@ -388,6 +415,19 @@ function AuditChange({
       Vencimiento: {from ? formatDate(from) : "—"} → <span className="font-medium text-foreground">{formatDate(to)}</span>
     </p>
   )
+}
+
+/** Amount and balance change of a `rellacash.gift` entry, read defensively from before/after. */
+function giftChange(
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null
+) {
+  const num = (value: unknown) => (typeof value === "number" ? value : null)
+  const from = num(before?.rellacash_balance) ?? num(before?.balance)
+  const to = num(after?.rellacash_balance) ?? num(after?.balance)
+  const amount = num(after?.amount) ?? (from !== null && to !== null ? to - from : null)
+  if (amount === null && to === null) return null
+  return { amount, from, to }
 }
 
 function Stat({
