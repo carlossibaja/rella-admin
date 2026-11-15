@@ -13,6 +13,7 @@ export type Overview = {
     ai_profit: number
     total: number
     previous_month_total: number
+    previous_same_days_total: number
     /** null when the previous month total is 0. */
     change_pct: number | null
   }

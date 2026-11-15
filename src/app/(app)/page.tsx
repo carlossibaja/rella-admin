@@ -89,7 +89,7 @@ export default function DashboardPage() {
               loading={loading}
               value={formatCOP(data?.revenue.total)}
               change={data?.revenue.change_pct ?? null}
-              hint={`vs ${formatCOP(data?.revenue.previous_month_total)} el mes anterior`}
+              hint={`vs ${formatCOP(data?.revenue.previous_same_days_total)} en los mismos días del mes anterior`}
             />
             <KpiCard
               label="Suscripciones"
