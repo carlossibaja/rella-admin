@@ -49,6 +49,7 @@ const TYPE_LABELS: Record<SubscriptionPaymentType, string> = {
   SUBSCRIPTION: "Suscripción",
   RENEW: "Renovación",
   ADDITION: "Adición",
+  RELLA_CASH_RECHARGE: "Recarga RellaCash",
 }
 const TYPES = Object.keys(TYPE_LABELS) as SubscriptionPaymentType[]
 
@@ -151,7 +152,7 @@ export function SubscriptionPaymentsTab() {
           label="Pagos"
           icon={Hash}
           loading={loadingTotals}
-          value={formatNumber(totals?.count ?? data?.meta.total)}
+          value={formatNumber(totals?.count)}
         />
         <KpiCard
           label="Total aprobado"
@@ -279,12 +280,12 @@ export function SubscriptionPaymentsTab() {
                             <OrganizationLink organization={payment.organization} />
                           </TableCell>
                           <TableCell>
-                            {TYPE_LABELS[payment.type as SubscriptionPaymentType] ?? payment.type}
+                            {payment.type_label ?? TYPE_LABELS[payment.type as SubscriptionPaymentType] ?? payment.type}
                           </TableCell>
                           <TableCell>{payment.plan?.name ?? MUTED_DASH}</TableCell>
                           <TableCell>
                             <Badge className={cn("border-transparent font-medium", status?.className)}>
-                              {status?.label ?? payment.status}
+                              {payment.status_label ?? status?.label ?? payment.status}
                             </Badge>
                           </TableCell>
                           <TableCell>{payment.user?.name ?? MUTED_DASH}</TableCell>

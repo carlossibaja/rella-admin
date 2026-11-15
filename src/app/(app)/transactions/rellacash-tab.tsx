@@ -24,11 +24,14 @@ import {
 import { useDebounced } from "@/hooks/use-debounced"
 import { errorMessage, fetchBody } from "@/lib/api/client"
 import {
+  RELLACASH_CONCEPTS,
   fundingOf,
   rellaCashTransactionsKey,
+  type RellaCashConcept,
   type RellaCashFunding,
   type RellaCashPage,
   type RellaCashSort,
+  type RellaCashStatus,
   type RellaCashType,
 } from "@/lib/api/transactions"
 import { formatCOP, formatDateTime, formatNumber } from "@/lib/format"
@@ -55,14 +58,26 @@ const TYPE_LABELS: Record<RellaCashType, string> = {
 }
 const TYPES = Object.keys(TYPE_LABELS) as RellaCashType[]
 
-/** Assumed ledger statuses; unknown values from the API are shown raw. */
-const STATUS_LABELS: Record<string, string> = {
-  completed: "Completada",
+const STATUS_LABELS: Record<RellaCashStatus, string> = {
   pending: "Pendiente",
-  failed: "Fallida",
-  reversed: "Revertida",
+  approved: "Aprobada",
+  declined: "Rechazada",
+  error: "Error",
 }
-const STATUSES = Object.keys(STATUS_LABELS)
+const STATUSES = Object.keys(STATUS_LABELS) as RellaCashStatus[]
+
+const CONCEPT_LABELS: Record<RellaCashConcept, string> = {
+  ai_reply: "Respuesta IA",
+  ai_suggestion: "Sugerencia IA",
+  ai_summary: "Resumen IA",
+  ai_flow_builder: "Constructor de flujos IA",
+  ai_simulation: "Simulación IA",
+  ai_automation: "Automatización IA",
+  ai_rewrite: "Reescritura IA",
+  ai_copilot: "Copiloto IA",
+  ai_assistant: "Asistente IA",
+  ai_transcription: "Transcripción IA",
+}
 
 const FUNDING: Record<RellaCashFunding, { label: string; className: string }> = {
   promo: { label: "Regalo", className: "bg-violet-500/12 text-violet-700 dark:text-violet-400" },
@@ -73,6 +88,7 @@ const FUNDINGS = Object.keys(FUNDING) as RellaCashFunding[]
 
 const SORTS: { value: RellaCashSort; label: string }[] = [
   { value: "-created_at", label: "Más recientes" },
+  { value: "created_at", label: "Más antiguas" },
   { value: "-amount", label: "Mayor monto" },
   { value: "amount", label: "Menor monto" },
 ]
@@ -82,8 +98,8 @@ type Filters = {
   search: string
   organization_id: string
   type: RellaCashType | ""
-  status: string
-  concept: string
+  status: RellaCashStatus | ""
+  concept: RellaCashConcept | ""
   funding: RellaCashFunding | ""
   from: string
   to: string
@@ -108,8 +124,8 @@ function initialFilters(): Filters {
     search: query.get("search") ?? "",
     organization_id: query.get("organization_id") ?? "",
     type: pick(query, "type", TYPES, ""),
-    status: query.get("status") ?? "",
-    concept: query.get("concept") ?? "",
+    status: pick(query, "status", STATUSES, ""),
+    concept: pick(query, "concept", RELLACASH_CONCEPTS, ""),
     funding: pick(query, "funding", FUNDINGS, ""),
     from: query.get("from") ?? "",
     to: query.get("to") ?? "",
@@ -125,14 +141,13 @@ export function RellaCashTab() {
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [page, setPage] = useState(initialPage)
   const search = useDebounced(filters.search.trim())
-  const concept = useDebounced(filters.concept.trim())
 
   const params = {
     search,
     organization_id: filters.organization_id,
     type: filters.type,
     status: filters.status,
-    concept,
+    concept: filters.concept,
     funding: filters.funding,
     from: filters.from,
     to: filters.to,
@@ -170,20 +185,20 @@ export function RellaCashTab() {
           label="Transacciones"
           icon={Hash}
           loading={loadingTotals}
-          value={formatNumber(totals?.count ?? data?.meta.total)}
+          value={formatNumber(totals?.count)}
         />
         <KpiCard label="Acreditado" icon={ArrowDownLeft} loading={loadingTotals} value={formatCOP(totals?.credited)} />
         <KpiCard
           label="Debitado"
           icon={ArrowUpRight}
           loading={loadingTotals}
-          value={formatCOP(Math.abs(totals?.debited ?? 0))}
+          value={formatCOP(totals?.debited)}
         />
         <KpiCard
           label="Regalo consumido"
           icon={Gift}
           loading={loadingTotals}
-          value={formatCOP(Math.abs(totals?.promo_consumed ?? 0))}
+          value={formatCOP(totals?.promo_consumed)}
         />
         <KpiCard
           label="Costo proveedor"
@@ -223,7 +238,7 @@ export function RellaCashTab() {
           </Select>
           <Select
             value={filters.status || ALL}
-            onValueChange={(value) => update("status", value === ALL ? "" : value)}
+            onValueChange={(value) => update("status", value === ALL ? "" : (value as RellaCashStatus))}
           >
             <SelectTrigger className="w-full" aria-label="Estado">
               <SelectValue />
@@ -263,13 +278,22 @@ export function RellaCashTab() {
           >
             <X /> Limpiar
           </Button>
-          <Input
-            className="self-end"
-            placeholder="Concepto (clave)"
-            value={filters.concept}
-            onChange={(e) => update("concept", e.target.value)}
-            aria-label="Concepto"
-          />
+          <Select
+            value={filters.concept || ALL}
+            onValueChange={(value) => update("concept", value === ALL ? "" : (value as RellaCashConcept))}
+          >
+            <SelectTrigger className="w-full self-end" aria-label="Concepto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos</SelectItem>
+              {RELLACASH_CONCEPTS.map((concept) => (
+                <SelectItem key={concept} value={concept}>
+                  {CONCEPT_LABELS[concept]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={filters.sort} onValueChange={(value) => update("sort", value as RellaCashSort)}>
             <SelectTrigger className="w-full self-end" aria-label="Orden">
               <SelectValue />
@@ -343,7 +367,7 @@ export function RellaCashTab() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <p className="max-w-56 truncate">{tx.concept_label ?? tx.concept ?? "—"}</p>
+                            <p className="max-w-56 truncate">{tx.concept_label ?? "—"}</p>
                             {tx.description || tx.model ? (
                               <p className="max-w-56 truncate text-xs text-muted-foreground">
                                 {[tx.description, tx.model].filter(Boolean).join(" · ")}
@@ -351,7 +375,7 @@ export function RellaCashTab() {
                             ) : null}
                           </TableCell>
                           <TableCell>
-                            {tx.status ? (STATUS_LABELS[tx.status] ?? tx.status) : MUTED_DASH}
+                            {tx.status ? (STATUS_LABELS[tx.status as RellaCashStatus] ?? tx.status) : MUTED_DASH}
                           </TableCell>
                           <TableCell>
                             {tx.user ? <span className="max-w-40 truncate">{tx.user.name}</span> : MUTED_DASH}

@@ -10,14 +10,14 @@ import { RellaCashTab } from "./rellacash-tab"
 import { pick, readQuery } from "./shared"
 import { SubscriptionPaymentsTab } from "./subscription-payments-tab"
 
-const TABS = ["rellacash", "payments"] as const
+const TABS = ["payments", "rellacash"] as const
 type Tab = (typeof TABS)[number]
 
 /** Filters that mean the same in both tabs and survive a tab switch. */
 const SHARED_PARAMS = ["search", "organization_id", "from", "to"] as const
 
 export default function TransactionsPage() {
-  const [tab, setTab] = useState<Tab>(() => pick(readQuery(), "tab", TABS, "rellacash"))
+  const [tab, setTab] = useState<Tab>(() => pick(readQuery(), "tab", TABS, "payments"))
 
   function changeTab(next: Tab) {
     // Reset tab-specific filters before the other tab mounts and reads the URL.
@@ -33,12 +33,12 @@ export default function TransactionsPage() {
 
       <Tabs value={tab} onValueChange={(value) => changeTab(value as Tab)}>
         <TabsList>
-          <TabsTrigger value="rellacash">RellaCash</TabsTrigger>
           <TabsTrigger value="payments">Pagos de suscripción</TabsTrigger>
+          <TabsTrigger value="rellacash">RellaCash</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {tab === "rellacash" ? <RellaCashTab /> : <SubscriptionPaymentsTab />}
+      {tab === "payments" ? <SubscriptionPaymentsTab /> : <RellaCashTab />}
     </>
   )
 }

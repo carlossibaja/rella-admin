@@ -44,8 +44,9 @@ export function useQuerySync(values: QueryValues) {
 
 export const MUTED_DASH = <span className="text-muted-foreground">—</span>
 
+/** Links to the organization; null means it was purged. */
 export function OrganizationLink({ organization }: { organization: { id: number; name: string } | null }) {
-  if (!organization) return MUTED_DASH
+  if (!organization) return <span className="text-muted-foreground">Empresa eliminada</span>
   return (
     <Link href={`/organizations/${organization.id}`} className="font-medium hover:underline">
       {organization.name}
