@@ -32,7 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { errorMessage } from "@/lib/api/client"
-import { organizationKey, type OrganizationDetail, type Plan } from "@/lib/api/organizations"
+import { organizationKey, type OrganizationDetail } from "@/lib/api/organizations"
+import { planPeriod } from "@/lib/plan"
 import { formatCOP, formatDate, formatDateTime, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -70,17 +71,6 @@ const AUDIT_ACTIONS: Record<string, string> = {
   "subscription.extend": "Extensión de vencimiento",
   "organization.delete": "Eliminación de la empresa",
   "organization.restore": "Restauración de la empresa",
-}
-
-function planPeriod(plan: Plan) {
-  const units: Record<string, [string, string]> = {
-    Day: ["día", "días"],
-    Week: ["semana", "semanas"],
-    Month: ["mes", "meses"],
-    Year: ["año", "años"],
-  }
-  const [one, many] = units[plan.periodicity_type] ?? [plan.periodicity_type, plan.periodicity_type]
-  return plan.periodicity === 1 ? `/${one}` : `/${plan.periodicity} ${many}`
 }
 
 export default function OrganizationDetailPage() {

@@ -34,6 +34,7 @@ import {
   type Paginated,
 } from "@/lib/api/organizations"
 import { formatCOP, formatDate, formatDateTime, formatNumber } from "@/lib/format"
+import { planPeriod } from "@/lib/plan"
 
 const ALL = "all"
 const STATUSES = Object.keys(STATUS_LABELS) as OrganizationStatusFilter[]
@@ -253,7 +254,19 @@ export default function OrganizationsPage() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{org.plan?.name ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell>
+                          {org.plan ? (
+                            <div className="leading-tight">
+                              <div>{org.plan.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatCOP(org.plan.price)}
+                                {planPeriod(org.plan)}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <StatusBadge status={organizationStatus(org)} daysLeft={org.days_left} />
                           {org.deleted_at ? (
