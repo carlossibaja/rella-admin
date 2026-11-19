@@ -122,6 +122,57 @@ export function revenueKey(filters: RevenueFilters) {
   return withQuery("/staff/metrics/revenue", filters)
 }
 
+export type OrganizationMetricsFilters = {
+  from?: string
+  to?: string
+  group_by?: GroupBy
+}
+
+/** Lifecycle event counts for one period (or the whole range). */
+export type OrganizationMetricsPoint = {
+  period: string
+  /** Organizations created, including ones deleted later. */
+  created: number
+  /** First approved subscription payment. */
+  converted: number
+  /** Paid plan cancelled (turning auto-renew off is not counted). */
+  cancelled: number
+  /** Suspensions for missing payment; null until the backend keeps that history. */
+  churned_payment: number | null
+  /** Soft-deleted organizations. */
+  deleted: number
+  /** Free plan expired and the organization never paid (evaluated as of today). */
+  trial_expired_unconverted: number
+}
+
+export type OrganizationMetrics = {
+  from: string
+  to: string
+  timezone: string
+  group_by: GroupBy
+  series: OrganizationMetricsPoint[]
+  totals: Omit<OrganizationMetricsPoint, "period"> & {
+    /** `converted / (converted + trial_expired_unconverted)`; null when both are 0. */
+    conversion_rate_pct: number | null
+  }
+  /** Current state, independent of the range. `active + expiring + expired + none = total`. */
+  snapshot: {
+    total: number
+    active: number
+    expiring: number
+    expired: number
+    none: number
+    /** On a free trial right now; overlaps `active`/`expiring`. */
+    trialing: number
+    /** Soft-deleted, pending purge; not counted in `total`. */
+    deleted: number
+  }
+}
+
+export function organizationMetricsKey(filters: OrganizationMetricsFilters) {
+  return withQuery("/staff/metrics/organizations", filters)
+}
+
 export type AiProfitGroupBy = "day" | "organization" | "model" | "concept"
 
 export type AiProfitFilters = {
