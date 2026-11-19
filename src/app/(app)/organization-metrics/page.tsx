@@ -47,6 +47,10 @@ import { organizationMetricsKey, type GroupBy, type OrganizationMetrics } from "
 import { addMonths, currentMonth, formatNumber, formatPeriod, todayLocal } from "@/lib/format"
 
 import { EVENT_HELP, EVENT_LABELS, conversionRate, formatRate, type EventMetric } from "./definitions"
+import { TrendCharts } from "./trend-charts"
+
+/** Default range: the current month and the 2 before it (a quarter), through today. */
+const DEFAULT_RANGE_MONTHS = 3
 
 /** Series drawn in the chart; `churned_payment` is excluded while it is always null. */
 const CHART_METRICS = [
@@ -75,7 +79,7 @@ function nullableCount(value: number | null | undefined) {
 }
 
 export default function OrganizationMetricsPage() {
-  const [from, setFrom] = useState(() => `${addMonths(currentMonth(), -11)}-01`)
+  const [from, setFrom] = useState(() => `${addMonths(currentMonth(), -(DEFAULT_RANGE_MONTHS - 1))}-01`)
   const [to, setTo] = useState(todayLocal)
   const [groupBy, setGroupBy] = useState<GroupBy>("month")
 
@@ -145,6 +149,7 @@ export default function OrganizationMetricsPage() {
               <h2 className="text-lg font-semibold tracking-tight">En el rango</h2>
               <p className="text-sm text-muted-foreground">Eventos ocurridos entre las fechas seleccionadas.</p>
             </div>
+            <TrendCharts series={series} groupBy={data?.group_by ?? groupBy} loading={loading} />
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <KpiCard
                 label={EVENT_LABELS.created}
