@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Info, type LucideIcon } from "lucide-react"
+import { History, Info, type LucideIcon } from "lucide-react"
 import type { LabelProps } from "recharts"
 
 import { EmptyState } from "@/components/empty-state"
@@ -24,6 +24,22 @@ export const VALUE_LABEL_PROPS = {
 /** LabelList formatter: the count, or nothing for 0 so empty buckets stay clean. */
 export function countOrBlank(value: unknown) {
   return typeof value === "number" && value !== 0 ? formatNumber(value) : ""
+}
+
+/** LabelList formatter for nullable counts: blank for null (a gap, never 0), otherwise the count. */
+export function countOrGap(value: unknown) {
+  return typeof value === "number" ? formatNumber(value) : ""
+}
+
+/** Subtle note about how far the subscription history goes back; renders nothing without text. */
+export function HistoryNote({ text, className }: { text: string | null; className?: string }) {
+  if (!text) return null
+  return (
+    <p className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+      <History className="size-3.5 shrink-0" aria-hidden />
+      <span>{text}</span>
+    </p>
+  )
 }
 
 /** Small "i" icon that reveals a metric definition on hover or focus. */
@@ -53,12 +69,15 @@ export function ChartCard({
   empty,
   emptyTitle,
   emptyIcon,
+  note,
   className,
   children,
 }: {
   title: string
   help: string
   description?: string
+  /** Subtle line under the description, e.g. a history coverage note. */
+  note?: string | null
   loading: boolean
   empty: boolean
   emptyTitle: string
@@ -74,6 +93,7 @@ export function ChartCard({
           <InfoHint text={help} label={`Definición: ${title}`} />
         </CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
+        <HistoryNote text={note ?? null} />
       </CardHeader>
       <CardContent className="flex-1">
         {loading ? (
@@ -102,7 +122,7 @@ export function StatTile({
   value: ReactNode
   hint?: ReactNode
   loading: boolean
-  /** Renders the value as secondary text (e.g. "No disponible"). */
+  /** Renders the value as secondary text (e.g. "Sin datos"). */
   muted?: boolean
 }) {
   return (

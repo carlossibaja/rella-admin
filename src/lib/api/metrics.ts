@@ -137,12 +137,25 @@ export type OrganizationMetricsPoint = {
   converted: number
   /** Paid plan cancelled (turning auto-renew off is not counted). */
   cancelled: number
-  /** Suspensions for missing payment; null until the backend keeps that history. */
+  /** Suspended for missing payment in the bucket. null = no history for the bucket. */
   churned_payment: number | null
   /** Soft-deleted organizations. */
   deleted: number
   /** Free plan expired and the organization never paid (evaluated as of today). */
   trial_expired_unconverted: number
+  /**
+   * Point in time at the bucket end (or now for the current bucket): orgs with a paid,
+   * non-suspended period covering that moment; the free plan is excluded.
+   * null before `history_starts_at`; always null in `totals`.
+   */
+  active: number | null
+  /**
+   * Paid periods that ended in the bucket (5+ days of grace ago) with no later paid period.
+   * A change to another paid plan does not count. null = no history for the bucket.
+   */
+  not_renewed: number | null
+  /** Last auto-renew change in the bucket turned it off. null = no history for the bucket. */
+  renewal_stopped: number | null
 }
 
 export type OrganizationMetrics = {
@@ -150,6 +163,11 @@ export type OrganizationMetrics = {
   to: string
   timezone: string
   group_by: GroupBy
+  /**
+   * ISO UTC datetime when subscription history starts; null when there is none yet.
+   * Event metrics are null for any bucket that starts before it (including the one containing it).
+   */
+  history_starts_at: string | null
   series: OrganizationMetricsPoint[]
   totals: Omit<OrganizationMetricsPoint, "period"> & {
     /** `converted / (converted + trial_expired_unconverted)`; null when both are 0. */

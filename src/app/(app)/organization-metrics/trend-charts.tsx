@@ -7,6 +7,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   LabelList,
   Line,
   LineChart,
@@ -14,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { Building2, TrendingUp, TrendingDown } from "lucide-react"
+import { Building2, History, TrendingUp, TrendingDown } from "lucide-react"
 
 import { tooltipFormatter } from "@/components/money-tooltip"
 import {
@@ -26,7 +27,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import type { GroupBy, OrganizationMetricsPoint } from "@/lib/api/metrics"
-import { formatPeriod } from "@/lib/format"
+import { formatNumber, formatPeriod } from "@/lib/format"
 
 import {
   ChartCard,
@@ -34,8 +35,16 @@ import {
   SegmentLabel,
   VALUE_LABEL_PROPS,
   countOrBlank,
+  countOrGap,
 } from "./chart-card"
-import { CHART_HELP, EVENT_LABELS, formatSigned, periodLabel } from "./definitions"
+import {
+  CHART_HELP,
+  EVENT_LABELS,
+  formatSigned,
+  historyNoteText,
+  periodLabel,
+  type HistoryCoverage,
+} from "./definitions"
 
 type TrendProps = {
   series: OrganizationMetricsPoint[]
@@ -43,7 +52,33 @@ type TrendProps = {
   loading: boolean
 }
 
+type HistoryTrendProps = TrendProps & { coverage: HistoryCoverage }
+
 const CHART_CLASS = "aspect-auto h-64 w-full"
+
+/** Tooltip row for counts that may be null: null reads "sin datos", never 0. */
+function nullableCountTooltip(config: ChartConfig) {
+  return function TooltipRow(value: unknown, name: unknown, item: { color?: string }) {
+    const key = String(name)
+    const label = config[key]?.label ?? key
+    const missing = value === null || value === undefined
+    return (
+      <div className="flex w-full min-w-40 items-center gap-2">
+        <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: item.color }} />
+        <span className="text-muted-foreground">{label}</span>
+        <span
+          className={
+            missing
+              ? "ml-auto text-muted-foreground italic"
+              : "ml-auto font-mono font-medium text-foreground tabular-nums"
+          }
+        >
+          {missing ? "sin datos" : formatNumber(Number(value))}
+        </span>
+      </div>
+    )
+  }
+}
 
 /** X axis shared by every trend chart: month/week/day labels from `formatPeriod`. */
 function PeriodAxis({ groupBy }: { groupBy: GroupBy }) {
@@ -251,24 +286,32 @@ export function NetGrowthChart({ series, groupBy, loading }: TrendProps) {
 
 // --- Losses per period (stacked bars) ---------------------------------------------------------
 
-const LOSS_METRICS = ["cancelled", "trial_expired_unconverted", "deleted"] as const
+/**
+ * Loss events that do not overlap: cancelling and being suspended for non-payment are distinct
+ * events, as are deletions and unpaid trial expiries. `not_renewed` is left out because it is the
+ * outcome of several of these (it would double count them), and `renewal_stopped` because it is
+ * a risk signal, not a loss yet. Stack order keeps indigo away from slate (CVD/normal separation).
+ */
+const LOSS_METRICS = ["cancelled", "churned_payment", "deleted", "trial_expired_unconverted"] as const
 
 const lossesConfig = {
   cancelled: { label: EVENT_LABELS.cancelled, color: "var(--chart-3)" },
-  trial_expired_unconverted: { label: EVENT_LABELS.trial_expired_unconverted, color: "var(--chart-5)" },
+  churned_payment: { label: EVENT_LABELS.churned_payment, color: "var(--chart-1)" },
   deleted: { label: EVENT_LABELS.deleted, color: "var(--chart-4)" },
+  trial_expired_unconverted: { label: EVENT_LABELS.trial_expired_unconverted, color: "var(--chart-5)" },
 } satisfies ChartConfig
 
-const lossesTooltip = tooltipFormatter(lossesConfig, "count")
+const lossesTooltip = nullableCountTooltip(lossesConfig)
 
 type LossPoint = OrganizationMetricsPoint & { losses: number }
 
-export function LossesChart({ series, groupBy, loading }: TrendProps) {
+export function LossesChart({ series, groupBy, loading, coverage }: HistoryTrendProps) {
   const data = useMemo<LossPoint[]>(
     () =>
       series.map((point) => ({
         ...point,
-        losses: point.cancelled + point.trial_expired_unconverted + point.deleted,
+        // A null segment (no history) is omitted from the stack and adds nothing to the total.
+        losses: LOSS_METRICS.reduce((sum, metric) => sum + (point[metric] ?? 0), 0),
       })),
     [series]
   )
@@ -279,7 +322,8 @@ export function LossesChart({ series, groupBy, loading }: TrendProps) {
     <ChartCard
       title="Pérdidas por periodo"
       help={CHART_HELP.losses}
-      description="Cancelaciones, pruebas vencidas sin pagar y eliminaciones"
+      description="Cancelaciones, caídas por falta de pago, eliminaciones y pruebas vencidas sin pagar"
+      note={historyNoteText(coverage)}
       loading={loading}
       empty={empty}
       emptyIcon={TrendingDown}
@@ -299,6 +343,7 @@ export function LossesChart({ series, groupBy, loading }: TrendProps) {
           />
           <ChartTooltip
             cursor={false}
+            filterNull={false}
             content={
               <ChartTooltipContent
                 labelFormatter={(value) => periodLabel(String(value), groupBy)}
@@ -328,6 +373,91 @@ export function LossesChart({ series, groupBy, loading }: TrendProps) {
             )
           })}
         </BarChart>
+      </ChartContainer>
+    </ChartCard>
+  )
+}
+
+// --- Active vs. not renewed (line + bars) -----------------------------------------------------
+
+const activeNotRenewedConfig = {
+  active: { label: EVENT_LABELS.active, color: "var(--chart-2)" },
+  not_renewed: { label: EVENT_LABELS.not_renewed, color: "var(--chart-4)" },
+} satisfies ChartConfig
+
+const activeNotRenewedTooltip = nullableCountTooltip(activeNotRenewedConfig)
+
+/**
+ * Point-in-time active organizations (line) against paid periods that were not renewed (bars).
+ * Buckets without history are gaps: no point, no bar, no label (null is never drawn as 0).
+ * Line vs. bar is the secondary encoding for the green/red pair, which is weak under deutan CVD.
+ */
+export function ActiveNotRenewedChart({ series, groupBy, loading, coverage, className }: HistoryTrendProps & {
+  className?: string
+}) {
+  const labeled = series.length <= MAX_LABELED_POINTS
+  const noHistory = coverage.kind === "none"
+  const empty = noHistory || series.every((point) => point.active === null && point.not_renewed === null)
+
+  return (
+    <ChartCard
+      className={className}
+      title="Activas vs. no renovaron"
+      help={CHART_HELP.activeNotRenewed}
+      description="Empresas activas al cierre de cada periodo y periodos pagos que no se renovaron"
+      note={noHistory ? null : historyNoteText(coverage)}
+      loading={loading}
+      empty={empty}
+      emptyIcon={History}
+      emptyTitle={noHistory ? "Sin historial todavía" : "Sin datos de historial en este rango"}
+    >
+      <ChartContainer config={activeNotRenewedConfig} className={CHART_CLASS}>
+        <ComposedChart data={series} margin={{ left: 12, right: 12, top: 4 }} accessibilityLayer>
+          <CartesianGrid vertical={false} />
+          <PeriodAxis groupBy={groupBy} />
+          <YAxis
+            hide={labeled}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+            width={36}
+            padding={{ top: labeled ? 22 : 8 }}
+          />
+          <ChartTooltip
+            filterNull={false}
+            content={
+              <ChartTooltipContent
+                labelFormatter={(value) => periodLabel(String(value), groupBy)}
+                formatter={activeNotRenewedTooltip}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar dataKey="not_renewed" fill="var(--color-not_renewed)" maxBarSize={40} radius={[4, 4, 0, 0]}>
+            {labeled ? (
+              <LabelList
+                dataKey="not_renewed"
+                position="top"
+                offset={6}
+                formatter={countOrGap}
+                {...VALUE_LABEL_PROPS}
+              />
+            ) : null}
+          </Bar>
+          <Line
+            type="monotone"
+            dataKey="active"
+            stroke="var(--color-active)"
+            strokeWidth={2}
+            connectNulls={false}
+            dot={{ r: 4, fill: "var(--color-active)", stroke: "var(--card)", strokeWidth: 2 }}
+            activeDot={{ r: 5, stroke: "var(--card)", strokeWidth: 2 }}
+          >
+            {labeled ? (
+              <LabelList dataKey="active" position="top" offset={10} formatter={countOrGap} {...VALUE_LABEL_PROPS} />
+            ) : null}
+          </Line>
+        </ComposedChart>
       </ChartContainer>
     </ChartCard>
   )

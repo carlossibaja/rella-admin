@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Building2, FlaskConical, History, Percent, Trash2 } from "lucide-react"
+import { Building2, FlaskConical, Percent, Trash2 } from "lucide-react"
 import useSWR from "swr"
 
 import { ErrorState } from "@/components/empty-state"
@@ -13,10 +13,19 @@ import { errorMessage } from "@/lib/api/client"
 import { organizationMetricsKey, type GroupBy, type OrganizationMetrics } from "@/lib/api/metrics"
 import { addMonths, currentMonth, formatNumber, todayLocal } from "@/lib/format"
 
-import { ChartCard, InfoHint, StatTile } from "./chart-card"
-import { CHART_HELP, EVENT_HELP, EVENT_LABELS, formatRate } from "./definitions"
+import { ChartCard, HistoryNote, InfoHint, StatTile } from "./chart-card"
+import {
+  CHART_HELP,
+  EVENT_HELP,
+  EVENT_LABELS,
+  formatNullableCount,
+  formatRate,
+  historyCoverage,
+  historyNoteText,
+  periodLabel,
+} from "./definitions"
 import { DonutChart } from "./donut-chart"
-import { CreatedDeletedChart, LossesChart, NetGrowthChart } from "./trend-charts"
+import { ActiveNotRenewedChart, CreatedDeletedChart, LossesChart, NetGrowthChart } from "./trend-charts"
 
 /** Default range: the current month and the 2 before it (a quarter), through today. */
 const DEFAULT_RANGE_MONTHS = 3
@@ -39,7 +48,10 @@ export default function OrganizationMetricsPage() {
   const snapshot = data?.snapshot
   const totals = data?.totals
   const resolvedGroupBy = data?.group_by ?? groupBy
-  const churnedTotal = totals?.churned_payment ?? null
+  const coverage = historyCoverage(data?.history_starts_at, data?.from ?? from)
+  const historyNote = historyNoteText(coverage)
+  // `totals.active` is always null (a point-in-time value); the KPI is the last bucket with data.
+  const activeAtClose = series.findLast((point) => point.active !== null)
   const converted = totals?.converted ?? 0
   const trialExpired = totals?.trial_expired_unconverted ?? 0
 
@@ -119,7 +131,7 @@ export default function OrganizationMetricsPage() {
               help="Eventos ocurridos entre las fechas seleccionadas (zona horaria America/Bogota). El periodo actual está en curso."
               description="Eventos ocurridos entre las fechas seleccionadas."
             />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               <StatTile
                 label={EVENT_LABELS.created}
                 help={EVENT_HELP.created}
@@ -156,13 +168,6 @@ export default function OrganizationMetricsPage() {
                 loading={loading}
                 value={formatNumber(totals?.deleted)}
               />
-              <StatTile
-                label={EVENT_LABELS.churned_payment}
-                help={EVENT_HELP.churned_payment}
-                loading={loading}
-                muted={churnedTotal === null}
-                value={churnedTotal === null ? "No disponible" : formatNumber(churnedTotal)}
-              />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -198,20 +203,61 @@ export default function OrganizationMetricsPage() {
                   />
                 </div>
               </ChartCard>
-              <LossesChart series={series} groupBy={resolvedGroupBy} loading={loading} />
+              <LossesChart series={series} groupBy={resolvedGroupBy} loading={loading} coverage={coverage} />
             </div>
+          </section>
 
-            <Card className="flex-row items-start gap-3 px-4 py-3 text-muted-foreground">
-              <History className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <p className="text-sm">
-                <span className="font-medium text-foreground">Activas vs. no renovaron por mes:</span> no disponible
-                todavía; requiere historial de periodos de suscripción.
-              </p>
-            </Card>
+          <section className="space-y-3">
+            <SectionHeading
+              title="Retención"
+              help={CHART_HELP.retention}
+              description="Activas, renovaciones y caídas según el historial de suscripciones."
+            />
+            <HistoryNote text={loading ? null : historyNote} />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatTile
+                label="Activas al cierre"
+                help={CHART_HELP.activeAtClose}
+                loading={loading}
+                muted={!activeAtClose}
+                value={formatNullableCount(activeAtClose?.active)}
+                hint={activeAtClose ? periodLabel(activeAtClose.period, resolvedGroupBy) : undefined}
+              />
+              <NullableTile metric="not_renewed" value={totals?.not_renewed} loading={loading} />
+              <NullableTile metric="churned_payment" value={totals?.churned_payment} loading={loading} />
+              <NullableTile metric="renewal_stopped" value={totals?.renewal_stopped} loading={loading} />
+            </div>
+            <ActiveNotRenewedChart
+              series={series}
+              groupBy={resolvedGroupBy}
+              loading={loading}
+              coverage={coverage}
+            />
           </section>
         </>
       )}
     </>
+  )
+}
+
+/** Range total that is null when there is no history for it ("Sin datos", never 0). */
+function NullableTile({
+  metric,
+  value,
+  loading,
+}: {
+  metric: "not_renewed" | "churned_payment" | "renewal_stopped"
+  value: number | null | undefined
+  loading: boolean
+}) {
+  return (
+    <StatTile
+      label={EVENT_LABELS[metric]}
+      help={EVENT_HELP[metric]}
+      loading={loading}
+      muted={value === null || value === undefined}
+      value={formatNullableCount(value)}
+    />
   )
 }
 
