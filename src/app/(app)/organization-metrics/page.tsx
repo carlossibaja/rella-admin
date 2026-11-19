@@ -1,85 +1,33 @@
 "use client"
 
 import { useState } from "react"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import {
-  BadgeCheck,
-  Ban,
-  Building2,
-  CircleCheck,
-  CircleDashed,
-  CircleX,
-  Clock,
-  CreditCard,
-  FlaskConical,
-  Hourglass,
-  Percent,
-  Trash2,
-  UserPlus,
-} from "lucide-react"
+import { Building2, FlaskConical, History, Percent, Trash2 } from "lucide-react"
 import useSWR from "swr"
 
-import { EmptyState, ErrorState } from "@/components/empty-state"
-import { KpiCard } from "@/components/kpi-card"
-import { tooltipFormatter } from "@/components/money-tooltip"
+import { ErrorState } from "@/components/empty-state"
 import { PageHeader } from "@/components/page-header"
 import { DateField, GroupBySelect } from "@/components/range-filters"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { errorMessage } from "@/lib/api/client"
 import { organizationMetricsKey, type GroupBy, type OrganizationMetrics } from "@/lib/api/metrics"
-import { addMonths, currentMonth, formatNumber, formatPeriod, todayLocal } from "@/lib/format"
+import { addMonths, currentMonth, formatNumber, todayLocal } from "@/lib/format"
 
-import { EVENT_HELP, EVENT_LABELS, conversionRate, formatRate, type EventMetric } from "./definitions"
-import { TrendCharts } from "./trend-charts"
+import { ChartCard, InfoHint, StatTile } from "./chart-card"
+import { CHART_HELP, EVENT_HELP, EVENT_LABELS, formatRate } from "./definitions"
+import { DonutChart } from "./donut-chart"
+import { CreatedDeletedChart, LossesChart, NetGrowthChart } from "./trend-charts"
 
 /** Default range: the current month and the 2 before it (a quarter), through today. */
 const DEFAULT_RANGE_MONTHS = 3
 
-/** Series drawn in the chart; `churned_payment` is excluded while it is always null. */
-const CHART_METRICS = [
-  "created",
-  "converted",
-  "cancelled",
-  "deleted",
-  "trial_expired_unconverted",
-] as const satisfies readonly EventMetric[]
-
-const chartConfig = {
-  created: { label: EVENT_LABELS.created, color: "var(--chart-1)" },
-  converted: { label: EVENT_LABELS.converted, color: "var(--chart-2)" },
-  cancelled: { label: EVENT_LABELS.cancelled, color: "var(--chart-3)" },
-  deleted: { label: EVENT_LABELS.deleted, color: "var(--chart-4)" },
-  trial_expired_unconverted: { label: EVENT_LABELS.trial_expired_unconverted, color: "var(--chart-5)" },
-} satisfies ChartConfig
-
-const countTooltip = tooltipFormatter(chartConfig, "count")
-
-const UNAVAILABLE_HINT = "Sin historial de suspensiones"
-
-/** Renders a nullable count; null means the metric is not tracked yet, never 0. */
-function nullableCount(value: number | null | undefined) {
-  return value === null || value === undefined ? "—" : formatNumber(value)
+/** First day of the month `DEFAULT_RANGE_MONTHS - 1` months back, always sent as `from`. */
+function defaultFrom() {
+  return `${addMonths(currentMonth(), -(DEFAULT_RANGE_MONTHS - 1))}-01`
 }
 
 export default function OrganizationMetricsPage() {
-  const [from, setFrom] = useState(() => `${addMonths(currentMonth(), -(DEFAULT_RANGE_MONTHS - 1))}-01`)
+  const [from, setFrom] = useState(defaultFrom)
   const [to, setTo] = useState(todayLocal)
   const [groupBy, setGroupBy] = useState<GroupBy>("month")
 
@@ -90,8 +38,10 @@ export default function OrganizationMetricsPage() {
   const series = data?.series ?? []
   const snapshot = data?.snapshot
   const totals = data?.totals
-  const hasEvents = series.some((point) => CHART_METRICS.some((metric) => point[metric] > 0))
+  const resolvedGroupBy = data?.group_by ?? groupBy
   const churnedTotal = totals?.churned_payment ?? null
+  const converted = totals?.converted ?? 0
+  const trialExpired = totals?.trial_expired_unconverted ?? 0
 
   return (
     <>
@@ -113,214 +63,203 @@ export default function OrganizationMetricsPage() {
       ) : (
         <>
           <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Estado actual</h2>
-              <p className="text-sm text-muted-foreground">
-                Foto de hoy, no depende del rango. Activas, por vencer, vencidas y sin plan suman el total.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <KpiCard label="Total" icon={Building2} loading={loading} value={formatNumber(snapshot?.total)} />
-              <KpiCard label="Activas" icon={CircleCheck} loading={loading} value={formatNumber(snapshot?.active)} />
-              <KpiCard label="Por vencer" icon={Clock} loading={loading} value={formatNumber(snapshot?.expiring)} />
-              <KpiCard label="Vencidas" icon={CircleX} loading={loading} value={formatNumber(snapshot?.expired)} />
-              <KpiCard label="Sin plan" icon={CircleDashed} loading={loading} value={formatNumber(snapshot?.none)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <KpiCard
-                label="En prueba"
-                icon={FlaskConical}
+            <SectionHeading
+              title="Estado actual"
+              help={CHART_HELP.snapshot}
+              description="Foto de hoy, no depende del rango."
+            />
+            <div className="grid gap-4 lg:grid-cols-3">
+              <ChartCard
+                className="lg:col-span-2"
+                title="Empresas por estado"
+                help={CHART_HELP.snapshot}
+                description="Activas, por vencer, vencidas y sin plan suman el total"
                 loading={loading}
-                value={formatNumber(snapshot?.trialing)}
-                hint="Se solapa con activas y por vencer; no suma al total"
-              />
-              <KpiCard
-                label="Eliminadas, pendientes de purga"
-                icon={Trash2}
-                loading={loading}
-                value={formatNumber(snapshot?.deleted)}
-                hint="No incluidas en el total"
-              />
+                empty={!snapshot?.total}
+                emptyIcon={Building2}
+                emptyTitle="Todavía no hay empresas"
+              >
+                {snapshot ? (
+                  <DonutChart
+                    centerValue={formatNumber(snapshot.total)}
+                    centerLabel="empresas"
+                    slices={[
+                      { key: "active", label: "Activas", value: snapshot.active, color: "var(--chart-2)" },
+                      { key: "expiring", label: "Por vencer", value: snapshot.expiring, color: "var(--chart-3)" },
+                      { key: "expired", label: "Vencidas", value: snapshot.expired, color: "var(--chart-4)" },
+                      { key: "none", label: "Sin plan", value: snapshot.none, color: "var(--chart-5)" },
+                    ]}
+                  />
+                ) : null}
+              </ChartCard>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <Callout
+                  icon={FlaskConical}
+                  label="En prueba"
+                  help={CHART_HELP.trialing}
+                  value={snapshot?.trialing}
+                  note="Se solapa con activas y por vencer; no suma al total."
+                  loading={loading}
+                />
+                <Callout
+                  icon={Trash2}
+                  label="Eliminadas, pendientes de purga"
+                  help={CHART_HELP.pendingPurge}
+                  value={snapshot?.deleted}
+                  note="No incluidas en el total."
+                  loading={loading}
+                />
+              </div>
             </div>
           </section>
 
           <section className="space-y-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">En el rango</h2>
-              <p className="text-sm text-muted-foreground">Eventos ocurridos entre las fechas seleccionadas.</p>
-            </div>
-            <TrendCharts series={series} groupBy={data?.group_by ?? groupBy} loading={loading} />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard
+            <SectionHeading
+              title="En el rango"
+              help="Eventos ocurridos entre las fechas seleccionadas (zona horaria America/Bogota). El periodo actual está en curso."
+              description="Eventos ocurridos entre las fechas seleccionadas."
+            />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+              <StatTile
                 label={EVENT_LABELS.created}
-                icon={UserPlus}
+                help={EVENT_HELP.created}
                 loading={loading}
                 value={formatNumber(totals?.created)}
-                hint="Incluye las eliminadas después"
               />
-              <KpiCard
+              <StatTile
                 label={EVENT_LABELS.converted}
-                icon={BadgeCheck}
+                help={EVENT_HELP.converted}
                 loading={loading}
                 value={formatNumber(totals?.converted)}
-                hint="Primer pago aprobado"
               />
-              <KpiCard
+              <StatTile
+                label="Tasa de conversión"
+                help={EVENT_HELP.conversion_rate_pct}
+                loading={loading}
+                value={formatRate(totals?.conversion_rate_pct)}
+              />
+              <StatTile
                 label={EVENT_LABELS.cancelled}
-                icon={Ban}
+                help={EVENT_HELP.cancelled}
                 loading={loading}
                 value={formatNumber(totals?.cancelled)}
-                hint="Sin contar renovación apagada"
               />
-              <KpiCard
+              <StatTile
+                label={EVENT_LABELS.trial_expired_unconverted}
+                help={EVENT_HELP.trial_expired_unconverted}
+                loading={loading}
+                value={formatNumber(totals?.trial_expired_unconverted)}
+              />
+              <StatTile
                 label={EVENT_LABELS.deleted}
-                icon={Trash2}
+                help={EVENT_HELP.deleted}
                 loading={loading}
                 value={formatNumber(totals?.deleted)}
               />
-              <KpiCard
-                label={EVENT_LABELS.trial_expired_unconverted}
-                icon={Hourglass}
-                loading={loading}
-                value={formatNumber(totals?.trial_expired_unconverted)}
-                hint="Evaluado a hoy"
-              />
-              <KpiCard
+              <StatTile
                 label={EVENT_LABELS.churned_payment}
-                icon={CreditCard}
+                help={EVENT_HELP.churned_payment}
                 loading={loading}
-                value={
-                  churnedTotal === null ? (
-                    <span className="text-base font-medium text-muted-foreground">No disponible</span>
-                  ) : (
-                    formatNumber(churnedTotal)
-                  )
-                }
-                hint={churnedTotal === null ? UNAVAILABLE_HINT : undefined}
-              />
-              <KpiCard
-                label="Tasa de conversión"
-                icon={Percent}
-                loading={loading}
-                value={formatRate(totals?.conversion_rate_pct)}
-                hint="Convertidas ÷ (convertidas + prueba vencida)"
+                muted={churnedTotal === null}
+                value={churnedTotal === null ? "No disponible" : formatNumber(churnedTotal)}
               />
             </div>
-          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Eventos por periodo</CardTitle>
-              <CardDescription>Caídas por falta de pago no se grafica: aún no hay datos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-72 w-full rounded-lg" />
-              ) : !data || !hasEvents ? (
-                <EmptyState className="h-72" icon={Building2} title="Sin eventos en este periodo" />
-              ) : (
-                <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
-                  <BarChart data={series} margin={{ left: 4, right: 4 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="period"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      minTickGap={20}
-                      tickFormatter={(value: string) => formatPeriod(value, data.group_by)}
-                    />
-                    <YAxis tickLine={false} axisLine={false} allowDecimals={false} width={36} />
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          labelFormatter={(value) => formatPeriod(String(value), data.group_by)}
-                          formatter={countTooltip}
-                        />
-                      }
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    {CHART_METRICS.map((metric) => (
-                      <Bar key={metric} dataKey={metric} fill={`var(--color-${metric})`} radius={[3, 3, 0, 0]} />
-                    ))}
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-0 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="pl-4">Periodo</TableHead>
-                  <TableHead className="text-right">{EVENT_LABELS.created}</TableHead>
-                  <TableHead className="text-right">{EVENT_LABELS.converted}</TableHead>
-                  <TableHead className="text-right">{EVENT_LABELS.cancelled}</TableHead>
-                  <TableHead className="text-right">{EVENT_LABELS.deleted}</TableHead>
-                  <TableHead className="text-right">{EVENT_LABELS.trial_expired_unconverted}</TableHead>
-                  <TableHead className="text-right" title={UNAVAILABLE_HINT}>
-                    {EVENT_LABELS.churned_payment}
-                  </TableHead>
-                  <TableHead className="pr-4 text-right">Conversión</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading
-                  ? Array.from({ length: 6 }, (_, i) => (
-                      <TableRow key={i}>
-                        <TableCell colSpan={8} className="px-4">
-                          <Skeleton className="h-5 w-full" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  : [...series].reverse().map((point) => (
-                      <TableRow key={point.period}>
-                        <TableCell className="pl-4">
-                          {formatPeriod(point.period, data?.group_by ?? groupBy)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(point.created)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(point.converted)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(point.cancelled)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNumber(point.deleted)}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatNumber(point.trial_expired_unconverted)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {nullableCount(point.churned_payment)}
-                        </TableCell>
-                        <TableCell className="pr-4 text-right tabular-nums">
-                          {formatRate(conversionRate(point))}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-              </TableBody>
-            </Table>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Definiciones</CardTitle>
-              <CardDescription>Cómo se calcula cada métrica (zona horaria America/Bogota)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                {(Object.keys(EVENT_LABELS) as EventMetric[]).map((metric) => (
-                  <div key={metric} className="space-y-0.5">
-                    <dt className="font-medium">{EVENT_LABELS[metric]}</dt>
-                    <dd className="text-muted-foreground">{EVENT_HELP[metric]}</dd>
-                  </div>
-                ))}
-                <div className="space-y-0.5">
-                  <dt className="font-medium">Tasa de conversión</dt>
-                  <dd className="text-muted-foreground">{EVENT_HELP.conversion_rate_pct}</dd>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CreatedDeletedChart series={series} groupBy={resolvedGroupBy} loading={loading} />
+              <NetGrowthChart series={series} groupBy={resolvedGroupBy} loading={loading} />
+              <ChartCard
+                title="Conversión de la prueba"
+                help={CHART_HELP.conversion}
+                description="Pruebas resueltas en el rango: pagaron vs. vencieron sin pagar"
+                loading={loading}
+                empty={converted + trialExpired === 0}
+                emptyIcon={Percent}
+                emptyTitle="Sin pruebas resueltas en este rango"
+              >
+                <div className="flex min-h-64 items-center">
+                  <DonutChart
+                    centerValue={formatRate(totals?.conversion_rate_pct)}
+                    centerLabel="conversión"
+                    slices={[
+                      {
+                        key: "converted",
+                        label: EVENT_LABELS.converted,
+                        value: converted,
+                        color: "var(--chart-2)",
+                      },
+                      {
+                        key: "trial_expired_unconverted",
+                        label: EVENT_LABELS.trial_expired_unconverted,
+                        value: trialExpired,
+                        color: "var(--chart-5)",
+                      },
+                    ]}
+                  />
                 </div>
-              </dl>
-            </CardContent>
-          </Card>
+              </ChartCard>
+              <LossesChart series={series} groupBy={resolvedGroupBy} loading={loading} />
+            </div>
+
+            <Card className="flex-row items-start gap-3 px-4 py-3 text-muted-foreground">
+              <History className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p className="text-sm">
+                <span className="font-medium text-foreground">Activas vs. no renovaron por mes:</span> no disponible
+                todavía; requiere historial de periodos de suscripción.
+              </p>
+            </Card>
+          </section>
         </>
       )}
     </>
+  )
+}
+
+function SectionHeading({ title, help, description }: { title: string; help: string; description: string }) {
+  return (
+    <div className="space-y-1">
+      <h2 className="flex items-center gap-1.5 text-lg font-semibold tracking-tight">
+        {title}
+        <InfoHint text={help} label={`Definición: ${title}`} />
+      </h2>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  )
+}
+
+/** Snapshot figure that sits beside the donut because it overlaps or sits outside the total. */
+function Callout({
+  icon: Icon,
+  label,
+  help,
+  value,
+  note,
+  loading,
+}: {
+  icon: typeof Building2
+  label: string
+  help: string
+  value: number | undefined
+  note: string
+  loading: boolean
+}) {
+  return (
+    <Card className="h-full gap-2 py-4">
+      <CardHeader className="px-4">
+        <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          <Icon className="size-4" aria-hidden />
+          <span>{label}</span>
+          <InfoHint text={help} label={`Definición: ${label}`} />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1 px-4">
+        {loading ? (
+          <Skeleton className="h-8 w-20" />
+        ) : (
+          <p className="text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(value)}</p>
+        )}
+        <p className="text-xs text-muted-foreground">{note}</p>
+      </CardContent>
+    </Card>
   )
 }
