@@ -89,7 +89,7 @@ function TemplateForm({ template, onDone }: { template: EmailTemplate | null; on
       <DialogHeader>
         <DialogTitle>{template ? "Editar plantilla" : "Nueva plantilla"}</DialogTitle>
         <DialogDescription>
-          El cuerpo es texto plano; las variables se reemplazan al enviar.
+          El cuerpo acepta formato Markdown; las variables se reemplazan al enviar.
         </DialogDescription>
       </DialogHeader>
 
@@ -141,6 +141,7 @@ function TemplateForm({ template, onDone }: { template: EmailTemplate | null; on
       </div>
 
       <VariablesHint />
+      <FormattingHint />
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
@@ -169,6 +170,36 @@ export function VariablesHint() {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/** Markdown the API renders in the body; raw HTML is stripped and bare URLs are not linked. */
+const FORMATTING = [
+  { syntax: "**texto**", description: "Negrita" },
+  { syntax: "*texto*", description: "Cursiva" },
+  { syntax: "[texto](https://...)", description: "Enlace" },
+  { syntax: "- elemento", description: "Lista; o 1. para numerada" },
+]
+
+function FormattingHint() {
+  return (
+    <div className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+      <p className="mb-1 font-medium text-foreground">Formato</p>
+      <ul className="grid gap-1 sm:grid-cols-2">
+        {FORMATTING.map((item) => (
+          <li key={item.syntax}>
+            <code className="rounded bg-background px-1 py-0.5 font-mono text-foreground">
+              {item.syntax}
+            </code>{" "}
+            {item.description}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1">
+        Deja una línea en blanco entre párrafos. Los enlaces van con [texto](url); el HTML no se
+        permite.
+      </p>
     </div>
   )
 }
