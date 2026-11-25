@@ -16,7 +16,7 @@ Requested by the user through the rellashop-api session. API is on rellashop-api
 
 ## Tasks
 - [x] T1 — API module `src/lib/api/emails.ts` (types, SWR keys, mutations) + "Plantillas de correo" page (list, create, edit, delete, variables hint) + sidebar entry. Route: delegated (2+ non-trivial files, writer trigger).
-- [ ] T2 — "Enviar email" button per row in the Empresas table and a send dialog: template select, server preview (recipient, subject, body, html iframe), optional subject/body edit, `can_send`/`cannot_send_reason`, 202 success toast, 409/422/429 errors. Route: delegated.
+- [x] T2 — "Enviar email" button per row in the Empresas table and a send dialog: template select, server preview (recipient, subject, body, html iframe), optional subject/body edit, `can_send`/`cannot_send_reason`, 202 success toast, 409/422/429 errors. Route: delegated.
 - [ ] T3 — "Correos enviados" paginated history in the organization detail (status badge, subject, sent by, date). Route: delegated.
 
 ## Acceptance
@@ -25,7 +25,8 @@ Requested by the user through the rellashop-api session. API is on rellashop-api
 
 ## Progress
 - Branch `feat/staff-emails` created from main.
-- T1 done: `src/lib/api/emails.ts`, `/email-templates` page (list, create/edit dialog, in-app delete confirm, variables hint), sidebar entry. Checks: eslint pass, tsc pass.
+- T1 done: `src/lib/api/emails.ts`, `/email-templates` page (list, create/edit dialog, in-app delete confirm, variables hint), sidebar entry. Checks: eslint pass, tsc pass. Commit ca189a9.
+- T2 done: "Enviar email" per row (disabled for deleted orgs, stopPropagation) + `send-email-dialog.tsx` (debounced server preview keyed by input, sandboxed iframe, overrides, can_send gate, 409/422/429 handling, revalidates org emails). Checks: eslint pass, tsc pass.
 
 ## Next step
 T1.

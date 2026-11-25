@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Building2, Search, X } from "lucide-react"
+import { Building2, Mail, Search, X } from "lucide-react"
 import useSWR from "swr"
 
 import { EmptyState, ErrorState } from "@/components/empty-state"
@@ -35,6 +35,8 @@ import {
 } from "@/lib/api/organizations"
 import { formatCOP, formatDate, formatDateTime, formatNumber } from "@/lib/format"
 import { planPeriod } from "@/lib/plan"
+
+import { SendEmailDialog } from "./send-email-dialog"
 
 const ALL = "all"
 const STATUSES = Object.keys(STATUS_LABELS) as OrganizationStatusFilter[]
@@ -79,6 +81,7 @@ export default function OrganizationsPage() {
   const router = useRouter()
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [page, setPage] = useState(1)
+  const [emailTo, setEmailTo] = useState<OrganizationRow | null>(null)
   const search = useDebounced(filters.search.trim())
   const plan = useDebounced(filters.plan.trim())
 
@@ -210,14 +213,17 @@ export default function OrganizationsPage() {
                   <TableHead>Vence</TableHead>
                   <TableHead className="text-right">Usuarios</TableHead>
                   <TableHead className="text-right">Canales</TableHead>
-                  <TableHead className="pr-4 text-right">Saldo RellaCash</TableHead>
+                  <TableHead className="text-right">Saldo RellaCash</TableHead>
+                  <TableHead className="pr-4">
+                    <span className="sr-only">Acciones</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && !data
                   ? Array.from({ length: 8 }, (_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 8 }, (_, j) => (
+                        {Array.from({ length: 9 }, (_, j) => (
                           <TableCell key={j} className={j === 0 ? "pl-4" : undefined}>
                             <Skeleton className="h-5 w-full max-w-32" />
                           </TableCell>
@@ -280,8 +286,22 @@ export default function OrganizationsPage() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(org.users_count)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(org.channels_count)}</TableCell>
-                        <TableCell className="pr-4 text-right tabular-nums">
+                        <TableCell className="text-right tabular-nums">
                           {formatCOP(org.rellacash_balance)}
+                        </TableCell>
+                        <TableCell className="pr-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={Boolean(org.deleted_at)}
+                            title={org.deleted_at ? "La empresa está eliminada" : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEmailTo(org)
+                            }}
+                          >
+                            <Mail /> Enviar email
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -309,6 +329,8 @@ export default function OrganizationsPage() {
           ) : null}
         </Card>
       )}
+
+      <SendEmailDialog organization={emailTo} onOpenChange={(open) => !open && setEmailTo(null)} />
     </>
   )
 }
