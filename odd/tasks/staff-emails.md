@@ -27,7 +27,7 @@ Requested by the user through the rellashop-api session. API is on rellashop-api
 - Branch `feat/staff-emails` created from main.
 - T1 done: `src/lib/api/emails.ts`, `/email-templates` page (list, create/edit dialog, in-app delete confirm, variables hint), sidebar entry. Checks: eslint pass, tsc pass. Commit ca189a9.
 - T2 done: "Enviar email" per row (disabled for deleted orgs, stopPropagation) + `send-email-dialog.tsx` (debounced server preview keyed by input, sandboxed iframe, overrides, can_send gate, 409/422/429 handling, revalidates org emails). Checks: eslint pass, tsc pass. Commit 63954d8.
-- T3 done: `sent-emails-card.tsx` "Correos enviados" (EmailStatusBadge in status-badge.tsx, sent by, date, error text, SimplePagination from `meta`, empty state, skeleton). Checks: npm run lint pass, tsc pass, next build pass.
+- T3 done: `sent-emails-card.tsx` "Correos enviados" (EmailStatusBadge in status-badge.tsx, sent by, date, error text, SimplePagination from `meta`, empty state, skeleton). Checks: npm run lint pass, tsc pass, next build pass. Commit 76e0912.
 
 ## Next step
-T1.
+Manual check against the API branch; push and PR are the user's decision.
