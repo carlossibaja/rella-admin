@@ -22,18 +22,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { useDebounced } from "@/hooks/use-debounced"
-import { errorMessage, fieldErrors } from "@/lib/api/client"
+import { EmailStatusBadge } from "@/components/status-badge"
+import { errorMessage, fetchBody, fieldErrors } from "@/lib/api/client"
 import {
   EMAIL_BODY_MAX,
   EMAIL_SUBJECT_MAX,
   EMAIL_TEMPLATES_KEY,
   isOrganizationEmailsKey,
+  organizationEmailsKey,
   previewOrganizationEmail,
   sendOrganizationEmail,
   type EmailInput,
   type EmailPreview,
   type EmailTemplate,
+  type SentEmail,
 } from "@/lib/api/emails"
+import type { Paginated } from "@/lib/api/organizations"
+import { formatDateTime } from "@/lib/format"
+
+/** How many of the latest sent emails the dialog lists, to avoid sending the same one twice. */
+const RECENT_EMAILS = 5
 
 type Recipient = { id: number; name: string }
 
@@ -131,6 +139,11 @@ function SendEmailForm({ organization, onDone }: { organization: Recipient; onDo
   }
 
   const templateList = templates.data ?? []
+  const recent = useSWR<Paginated<SentEmail>>(organizationEmailsKey(organization.id), fetchBody)
+  const recentEmails = (recent.data?.data ?? []).slice(0, RECENT_EMAILS)
+  const sameTemplate = templateId
+    ? recentEmails.find((email) => email.template && String(email.template.id) === templateId)
+    : undefined
 
   return (
     <div className="grid gap-5">
@@ -168,6 +181,13 @@ function SendEmailForm({ organization, onDone }: { organization: Recipient; onDo
           </Select>
           {errors.template_id ? (
             <p className="text-sm text-destructive">{errors.template_id}</p>
+          ) : null}
+          {sameTemplate ? (
+            <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+              Esta plantilla ya se le envió a esta empresa el{" "}
+              {formatDateTime(sameTemplate.sent_at ?? sameTemplate.created_at)}
+            </p>
           ) : null}
         </div>
       )}
@@ -223,6 +243,12 @@ function SendEmailForm({ organization, onDone }: { organization: Recipient; onDo
         </>
       ) : null}
 
+      <RecentEmails
+        emails={recentEmails}
+        loading={recent.isLoading && !recent.data}
+        error={recent.error && !recent.data ? errorMessage(recent.error) : null}
+      />
+
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
           Cancelar
@@ -232,6 +258,48 @@ function SendEmailForm({ organization, onDone }: { organization: Recipient; onDo
           Enviar
         </Button>
       </DialogFooter>
+    </div>
+  )
+}
+
+function RecentEmails({
+  emails,
+  loading,
+  error,
+}: {
+  emails: SentEmail[]
+  loading: boolean
+  error: string | null
+}) {
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-medium">Últimos correos enviados</p>
+      {loading ? (
+        <div className="grid gap-2">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ) : error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : emails.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Aún no se le han enviado correos a esta empresa.</p>
+      ) : (
+        <ul className="divide-y rounded-md border">
+          {emails.map((email) => (
+            <li key={email.id} className="flex items-start justify-between gap-3 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm">{email.subject}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {formatDateTime(email.sent_at ?? email.created_at)}
+                  {email.template ? ` · ${email.template.name}` : ""}
+                  {email.sent_by ? ` · ${email.sent_by.name}` : ""}
+                </p>
+              </div>
+              <EmailStatusBadge status={email.status} className="shrink-0" />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
