@@ -19,6 +19,8 @@ Requested by the user through the rellashop-api session. API is on rellashop-api
 - [x] T2 — "Enviar email" button per row in the Empresas table and a send dialog: template select, server preview (recipient, subject, body, html iframe), optional subject/body edit, `can_send`/`cannot_send_reason`, 202 success toast, 409/422/429 errors. Route: delegated.
 - [x] T3 — "Correos enviados" paginated history in the organization detail (status badge, subject, sent by, date). Route: delegated.
 
+- [x] T4 — Send dialog lists the last 5 sent emails and warns when the chosen template is among them, so staff don't send the same email twice. Commit 850d180. Route: inline (one file). Checked in the browser.
+
 ## Acceptance
 - Endpoints and payloads match the contract in this doc's source message.
 - lint, typecheck, build pass.
