@@ -29,5 +29,12 @@ Requested by the user through the rellashop-api session. API is on rellashop-api
 - T2 done: "Enviar email" per row (disabled for deleted orgs, stopPropagation) + `send-email-dialog.tsx` (debounced server preview keyed by input, sandboxed iframe, overrides, can_send gate, 409/422/429 handling, revalidates org emails). Checks: eslint pass, tsc pass. Commit 63954d8.
 - T3 done: `sent-emails-card.tsx` "Correos enviados" (EmailStatusBadge in status-badge.tsx, sent by, date, error text, SimplePagination from `meta`, empty state, skeleton). Checks: npm run lint pass, tsc pass, next build pass. Commit 76e0912.
 
+- Browser check against the local API (2026-11-25):
+  - Template create works.
+  - The no-owner org shows the reason and disables Enviar.
+  - Preview fills the variables; Editar re-previews.
+  - Send returned the "Correo en cola" toast, and the history shows the row as "En cola" with sent-by and template.
+  - Status stayed queued locally (queue worker likely not running).
+
 ## Next step
-Manual check against the API branch; push and PR are the user's decision.
+Waiting for the rellashop-api Markdown change, then update the template body hint. Push and PR are the user's decision.
