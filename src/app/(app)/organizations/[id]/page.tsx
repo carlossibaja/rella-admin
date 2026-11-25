@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { DeleteDialog, RestoreDialog } from "./deletion-dialogs"
 import { ExtendDialog } from "./extend-dialog"
 import { GiftCreditsDialog } from "./gift-credits-dialog"
+import { SentEmailsCard } from "./sent-emails-card"
 
 const PAYMENT_TYPES: Record<string, string> = {
   SUBSCRIPTION: "Suscripción",
@@ -366,6 +367,8 @@ export default function OrganizationDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          <SentEmailsCard organizationId={data.id} />
 
           {data.deleted_at ? null : (
             <Card className="border-destructive/40">

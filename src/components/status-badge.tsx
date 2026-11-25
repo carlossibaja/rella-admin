@@ -54,3 +54,24 @@ export function StatusBadge({
     </Badge>
   )
 }
+
+const EMAIL_STATUS: Record<string, { label: string; className: string }> = {
+  queued: { label: "En cola", className: "bg-muted text-muted-foreground" },
+  sent: { label: "Enviado", className: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400" },
+  delivered: { label: "Entregado", className: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400" },
+  delayed: { label: "Retrasado", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
+  bounced: { label: "Rebotó", className: "bg-red-500/12 text-red-700 dark:text-red-400" },
+  complained: { label: "Marcado como spam", className: "bg-red-500/12 text-red-700 dark:text-red-400" },
+  failed: { label: "Falló", className: "bg-red-500/12 text-red-700 dark:text-red-400" },
+}
+
+/** Delivery status of a staff email; unknown values are shown as plain text. */
+export function EmailStatusBadge({ status, className }: { status: string; className?: string }) {
+  const known = EMAIL_STATUS[status]
+  if (!known) return <span className={cn("text-sm", className)}>{status}</span>
+  return (
+    <Badge className={cn("border-transparent font-medium", known.className, className)}>
+      {known.label}
+    </Badge>
+  )
+}
